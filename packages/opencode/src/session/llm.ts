@@ -3,6 +3,7 @@ import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
 import {
   streamText,
+  generateText,
   wrapLanguageModel,
   type ModelMessage,
   type StreamTextResult,
@@ -40,6 +41,7 @@ export namespace LLM {
     tools: Record<string, Tool>
     retries?: number
     toolChoice?: "auto" | "required" | "none"
+    stream?: boolean
   }
 
   export type StreamOutput = StreamTextResult<ToolSet, unknown>
@@ -64,6 +66,11 @@ export namespace LLM {
       Auth.get(input.model.providerID),
     ])
     const isCodex = provider.id === "openai" && auth?.type === "oauth"
+
+    l.info("stream mode", {
+      useStream: input.stream ?? !cfg.experimental?.disable_stream,
+      disable_stream: cfg.experimental?.disable_stream,
+    })
 
     const system = []
     system.push(
@@ -170,33 +177,9 @@ export namespace LLM {
       })
     }
 
-    return streamText({
-      onError(error) {
-        l.error("stream error", {
-          error,
-        })
-      },
-      async experimental_repairToolCall(failed) {
-        const lower = failed.toolCall.toolName.toLowerCase()
-        if (lower !== failed.toolCall.toolName && tools[lower]) {
-          l.info("repairing tool call", {
-            tool: failed.toolCall.toolName,
-            repaired: lower,
-          })
-          return {
-            ...failed.toolCall,
-            toolName: lower,
-          }
-        }
-        return {
-          ...failed.toolCall,
-          input: JSON.stringify({
-            tool: failed.toolCall.toolName,
-            error: failed.error.message,
-          }),
-          toolName: "invalid",
-        }
-      },
+    const useStream = input.stream ?? !cfg.experimental?.disable_stream
+
+    const commonParams = {
       temperature: params.temperature,
       topP: params.topP,
       topK: params.topK,
@@ -253,7 +236,130 @@ export namespace LLM {
           sessionId: input.sessionID,
         },
       },
+    }
+
+    if (useStream) {
+      return streamText({
+        onError(error) {
+          l.error("stream error", {
+            error,
+          })
+        },
+        async experimental_repairToolCall(failed) {
+          const lower = failed.toolCall.toolName.toLowerCase()
+          if (lower !== failed.toolCall.toolName && tools[lower]) {
+            l.info("repairing tool call", {
+              tool: failed.toolCall.toolName,
+              repaired: lower,
+            })
+            return {
+              ...failed.toolCall,
+              toolName: lower,
+            }
+          }
+          return {
+            ...failed.toolCall,
+            input: JSON.stringify({
+              tool: failed.toolCall.toolName,
+              error: failed.error.message,
+            }),
+            toolName: "invalid",
+          }
+        },
+        ...commonParams,
+      })
+    }
+
+    const result = await generateText({
+      ...commonParams,
     })
+
+    return {
+      fullStream: (async function* () {
+        l.info("emit event", { type: "start" })
+        yield { type: "start" as const }
+        const textId = "ns-" + Date.now()
+        const reasoningId = "ns-reasoning-" + Date.now()
+
+        // Emit reasoning events
+        if (result.reasoning && result.reasoning.length > 0) {
+          const reasoningText = result.reasoning.map((r) => r.text).join("")
+          l.info("emit event", { type: "reasoning-start", reasoningId })
+          yield { type: "reasoning-start" as const, id: reasoningId }
+          l.info("emit event", { type: "reasoning-delta", reasoningId, text: reasoningText.substring(0, 100) })
+          yield { type: "reasoning-delta" as const, id: reasoningId, text: reasoningText }
+          l.info("emit event", { type: "reasoning-end", reasoningId })
+          yield { type: "reasoning-end" as const, id: reasoningId }
+        }
+
+        if (result.text) {
+          l.info("emit event", { type: "text-start", textId })
+          yield {
+            type: "text-start" as const,
+            id: textId,
+            providerMetadata: undefined,
+          }
+          l.info("emit event", { type: "text-delta", textId, text: result.text.substring(0, 100) })
+          yield {
+            type: "text-delta" as const,
+            id: textId,
+            text: result.text,
+            providerMetadata: undefined,
+          }
+          l.info("emit event", { type: "text-end", textId })
+          yield {
+            type: "text-end" as const,
+            id: textId,
+            providerMetadata: undefined,
+          }
+        }
+        if (result.toolCalls && result.toolCalls.length > 0) {
+          for (const tc of result.toolCalls) {
+            const tcAny = tc as unknown as { toolCallId: string; toolName: string; input: unknown }
+            l.info("emit event", { type: "tool-input-start", toolCallId: tcAny.toolCallId, toolName: tcAny.toolName })
+            yield {
+              type: "tool-input-start" as const,
+              id: tcAny.toolCallId,
+              toolName: tcAny.toolName,
+            }
+            l.info("emit event", { type: "tool-call", toolCallId: tcAny.toolCallId, toolName: tcAny.toolName })
+            yield {
+              type: "tool-call" as const,
+              toolCallId: tcAny.toolCallId,
+              toolName: tcAny.toolName,
+              input: tcAny.input as object,
+              providerMetadata: undefined,
+            }
+          }
+          // Emit tool-result events for each tool call
+          for (const tr of result.toolResults ?? []) {
+            l.info("emit event", { type: "tool-result", toolCallId: tr.toolCallId, toolName: tr.toolName })
+            yield {
+              type: "tool-result" as const,
+              toolCallId: tr.toolCallId,
+              toolName: tr.toolName,
+              input: tr.input,
+              output: tr.output,
+            }
+          }
+        }
+        l.info("emit event", { type: "finish-step", finishReason: result.finishReason ?? "stop" })
+        yield {
+          type: "finish-step" as const,
+          finishReason: result.finishReason ?? "stop",
+          usage: result.usage
+            ? {
+                inputTokens: result.usage.inputTokens ?? 0,
+                outputTokens: result.usage.outputTokens ?? 0,
+                totalTokens: result.usage.totalTokens ?? 0,
+              }
+            : undefined,
+          providerMetadata: undefined,
+        }
+      })(),
+      text: Promise.resolve(result.text),
+      toolCalls: Promise.resolve(result.toolCalls),
+    } as unknown as StreamOutput
   }
 
   async function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "permission" | "user">) {

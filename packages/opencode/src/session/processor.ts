@@ -52,8 +52,10 @@ export namespace SessionProcessor {
             let currentText: MessageV2.TextPart | undefined
             let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
             const stream = await LLM.stream(streamInput)
+            log.info("stream started", { sessionID: input.sessionID })
 
             for await (const value of stream.fullStream) {
+              log.debug("stream value", { type: value.type, sessionID: input.sessionID })
               input.abort.throwIfAborted()
               switch (value.type) {
                 case "start":
@@ -354,6 +356,7 @@ export namespace SessionProcessor {
           } catch (e: any) {
             log.error("process", {
               error: e,
+              message: e?.message,
               stack: JSON.stringify(e.stack),
             })
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })

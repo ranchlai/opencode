@@ -1203,6 +1203,7 @@ export namespace Config {
         .optional(),
       experimental: z
         .object({
+          disable_stream: z.boolean().optional().describe("Disable streaming and use generateText for all LLM calls"),
           disable_paste_summary: z.boolean().optional(),
           batch_tool: z.boolean().optional().describe("Enable the batch tool"),
           openTelemetry: z
