@@ -257,7 +257,6 @@ export class PermissionService extends ServiceMap.Service<PermissionService, Per
 
 export function evaluate(permission: string, pattern: string, ...rulesets: Ruleset[]): Rule {
   const merged = rulesets.flat()
-  log.info("evaluate", { permission, pattern, ruleset: merged })
   const match = merged.findLast(
     (rule) => Wildcard.match(permission, rule.permission) && Wildcard.match(pattern, rule.pattern),
   )
