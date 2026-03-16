@@ -270,9 +270,14 @@ export namespace LLM {
       })
     }
 
+    l.info("commonParams", { commonParams })
     const result = await generateText({
       ...commonParams,
     })
+    l.info("result", { result })
+    // also write the commonParams and result to prompt.json and result.json
+  
+
 
     return {
       fullStream: (async function* () {
