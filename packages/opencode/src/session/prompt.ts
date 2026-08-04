@@ -13,6 +13,7 @@ import { Provider } from "../provider/provider"
 import { ModelID, ProviderID } from "../provider/schema"
 import { type Tool as AITool, tool, jsonSchema, type ToolCallOptions, asSchema } from "ai"
 import { SessionCompaction } from "./compaction"
+import { SessionLoop } from "./loop"
 import { Instance } from "../project/instance"
 import { Bus } from "../bus"
 import { ProviderTransform } from "../provider/transform"
@@ -258,6 +259,7 @@ export namespace SessionPrompt {
 
   export function cancel(sessionID: SessionID) {
     log.info("cancel", { sessionID })
+    SessionLoop.stop(sessionID)
     const s = state()
     const match = s[sessionID]
     if (!match) {
@@ -323,6 +325,31 @@ export namespace SessionPrompt {
         !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
         lastUser.id < lastAssistant.id
       ) {
+        const last = msgs.find((msg) => msg.info.id === lastAssistant.id)
+        const text = SessionLoop.tick(sessionID, last)
+        if (text) {
+          const continueMsg = await Session.updateMessage({
+            id: MessageID.ascending(),
+            role: "user",
+            sessionID,
+            time: { created: Date.now() },
+            agent: lastUser.agent,
+            model: lastUser.model,
+          })
+          await Session.updatePart({
+            id: PartID.ascending(),
+            messageID: continueMsg.id,
+            sessionID,
+            type: "text",
+            synthetic: true,
+            text,
+            time: {
+              start: Date.now(),
+              end: Date.now(),
+            },
+          })
+          continue
+        }
         log.info("exiting loop", { sessionID })
         break
       }
@@ -1758,7 +1785,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const command = await Command.get(input.command)
     const agentName = command.agent ?? input.agent ?? (await Agent.defaultAgent())
 
-    const raw = input.arguments.match(argsRegex) ?? []
+    const loop = input.command === Command.Default.LOOP ? SessionLoop.parse(input.arguments) : undefined
+    const argumentText = loop?.kind === "start" ? loop.goal : input.arguments
+
+    const raw = argumentText.match(argsRegex) ?? []
     const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
 
     const templateCommand = await command.template
@@ -1779,12 +1809,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       return args[argIndex]
     })
     const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
-    let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
+    let template = withArgs.replaceAll("$ARGUMENTS", argumentText)
 
     // If command doesn't explicitly handle arguments (no $N or $ARGUMENTS placeholders)
     // but user provided arguments, append them to the template
-    if (placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
-      template = template + "\n\n" + input.arguments
+    if (placeholders.length === 0 && !usesArgumentsPlaceholder && argumentText.trim()) {
+      template = template + "\n\n" + argumentText
     }
 
     const shell = ConfigMarkdown.shell(template)
@@ -1877,6 +1907,33 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       },
       { parts },
     )
+
+    if (loop?.kind === "stop") {
+      SessionLoop.stop(input.sessionID)
+      const result = (await prompt({
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        model: userModel,
+        agent: userAgent,
+        parts: [{ type: "text", text: "Autonomous loop stopped." }],
+        variant: input.variant,
+        noReply: true,
+      })) as MessageV2.WithParts
+      Bus.publish(Command.Event.Executed, {
+        name: input.command,
+        sessionID: input.sessionID,
+        arguments: input.arguments,
+        messageID: result.info.id,
+      })
+      return result
+    }
+    if (loop?.kind === "start") {
+      SessionLoop.start(input.sessionID, {
+        goal: loop.goal,
+        deadline: loop.deadline,
+        max: loop.max,
+      })
+    }
 
     const result = (await prompt({
       sessionID: input.sessionID,

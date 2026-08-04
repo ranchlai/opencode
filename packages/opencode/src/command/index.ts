@@ -6,6 +6,7 @@ import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
+import PROMPT_LOOP from "./template/loop.txt"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
 
@@ -55,6 +56,7 @@ export namespace Command {
   export const Default = {
     INIT: "init",
     REVIEW: "review",
+    LOOP: "loop",
   } as const
 
   const state = Instance.state(async () => {
@@ -79,6 +81,15 @@ export namespace Command {
         },
         subtask: true,
         hints: hints(PROMPT_REVIEW),
+      },
+      [Default.LOOP]: {
+        name: Default.LOOP,
+        description: "autonomous loop [2h|50] <goal|@doc> — keeps working across compaction; /loop stop to end",
+        source: "command",
+        get template() {
+          return PROMPT_LOOP
+        },
+        hints: hints(PROMPT_LOOP),
       },
     }
 
