@@ -44,13 +44,16 @@ const getBase = (): Configuration => ({
   },
   win: {
     icon: `resources/icons/icon.ico`,
-    target: ["nsis"],
+    target: ["nsis", "portable"],
   },
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
     installerIcon: `resources/icons/icon.ico`,
     installerHeaderIcon: `resources/icons/icon.ico`,
+  },
+  portable: {
+    artifactName: "opencode-electron-${os}-${arch}-portable.${ext}",
   },
   linux: {
     icon: `resources/icons`,

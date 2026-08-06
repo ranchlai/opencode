@@ -59,6 +59,10 @@ console.log(`Loaded ${migrations.length} migrations`)
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
 const skipInstall = process.argv.includes("--skip-install")
+const filters = process.argv
+  .slice(2)
+  .filter((arg) => !arg.startsWith("--"))
+  .map((arg) => arg.toLowerCase().replaceAll("/", "-").replaceAll("amd64", "x64"))
 
 const allTargets: {
   os: string
@@ -123,26 +127,44 @@ const allTargets: {
   },
 ]
 
-const targets = singleFlag
-  ? allTargets.filter((item) => {
-      if (item.os !== process.platform || item.arch !== process.arch) {
-        return false
-      }
+const targets = allTargets.filter((item) => {
+  if (singleFlag) {
+    if (item.os !== process.platform || item.arch !== process.arch) {
+      return false
+    }
 
-      // When building for the current platform, prefer a single native binary by default.
-      // Baseline binaries require additional Bun artifacts and can be flaky to download.
-      if (item.avx2 === false) {
-        return baselineFlag
-      }
+    // When building for the current platform, prefer a single native binary by default.
+    // Baseline binaries require additional Bun artifacts and can be flaky to download.
+    if (item.avx2 === false) {
+      return baselineFlag
+    }
 
-      // also skip abi-specific builds for the same reason
-      if (item.abi !== undefined) {
-        return false
-      }
+    // also skip abi-specific builds for the same reason
+    if (item.abi !== undefined) {
+      return false
+    }
+  }
 
-      return true
-    })
-  : allTargets
+  if (filters.length === 0) return true
+
+  const os = item.os === "win32" ? "windows" : item.os
+  const name = [os, item.arch, item.avx2 === false ? "baseline" : undefined, item.abi]
+    .filter(Boolean)
+    .join("-")
+
+  return filters.some((filter) => {
+    if (filter === os) return true
+    if (filter === `${os}-${item.arch}`) {
+      return item.avx2 !== false && item.abi === undefined
+    }
+    return name === filter
+  })
+})
+
+if (targets.length === 0) {
+  console.error("error: no build targets matched", { filters, singleFlag })
+  process.exit(1)
+}
 
 await $`rm -rf dist`
 

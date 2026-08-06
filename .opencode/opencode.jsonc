@@ -5,6 +5,9 @@
       "options": {},
     },
   },
+  "compaction": {
+    "auto": true,
+  },
   "permission": {
     "edit": {
       "packages/opencode/migration/*": "deny",
