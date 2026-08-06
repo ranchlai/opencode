@@ -101,3 +101,28 @@ export const PermissionTable = sqliteTable("permission", {
   ...Timestamps,
   data: text({ mode: "json" }).notNull().$type<PermissionNext.Ruleset>(),
 })
+
+export const LoopTable = sqliteTable("session_loop", {
+  session_id: text().$type<SessionID>().primaryKey(),
+  goal: text().notNull(),
+  started: integer().notNull(),
+  deadline: integer(),
+  max: integer(),
+  rounds: integer().notNull(),
+  verify: text({ mode: "json" }).notNull().$type<string[]>(),
+  ...Timestamps,
+})
+
+export const MemoryTable = sqliteTable(
+  "memory",
+  {
+    id: text().primaryKey(),
+    project_id: text().$type<ProjectID>().notNull(),
+    tool: text().notNull(),
+    key: text().notNull(),
+    error: text().notNull(),
+    input: text({ mode: "json" }),
+    ...Timestamps,
+  },
+  (table) => [index("memory_project_key_idx").on(table.project_id, table.key)],
+)

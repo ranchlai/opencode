@@ -1,0 +1,98 @@
+---
+title: Loop
+description: Run long-horizon goals autonomously with /loop.
+---
+
+The `/loop` command keeps OpenCode working on a goal across many turns until the goal is done, blocked, or a budget expires. Context compaction can run in the middle of a loop; the loop continues afterward.
+
+```bash frame="none"
+/loop 2h ship the auth refactor
+```
+
+---
+
+## Usage
+
+```bash frame="none"
+/loop [budget] <goal>
+/loop stop
+```
+
+Budgets are optional and can be combined:
+
+| Form | Meaning |
+| --- | --- |
+| `2h`, `30m`, `90s`, `1d` | Stop when the deadline is reached |
+| `50` | Stop after this many continuation rounds |
+| `@GOAL.md` or free text | The goal to pursue |
+
+Examples:
+
+```bash frame="none"
+/loop fix the flaky CI job
+/loop 2h migrate the billing module
+/loop 50 @docs/roadmap.md
+/loop 2h 30 finish the remaining todos
+/loop stop
+```
+
+---
+
+## How it works
+
+1. OpenCode starts an autonomous session with your goal.
+2. The agent works in rounds: edit, test, continue.
+3. When the context window fills, [compaction](/docs/config#compaction) may summarize older turns. The loop keeps going.
+4. The agent must end with a stop marker:
+   - `LOOP_DONE` — goal complete
+   - `LOOP_BLOCKED` — needs the user (secret, irreversible decision, missing dependency)
+5. OpenCode may also stop when the deadline or round budget is hit.
+
+Use `/loop stop` (or `/loop cancel` / `/loop end`) to cancel an active loop.
+
+---
+
+## Verify before done
+
+By default, `LOOP_DONE` is accepted when the agent says so. You can require shell checks to pass first with `loop.verify` in your [config](/docs/config#loop).
+
+```jsonc title="opencode.jsonc"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "loop": {
+    "verify": ["bun typecheck", "bun test"],
+  },
+}
+```
+
+When the agent emits `LOOP_DONE`:
+
+1. OpenCode runs each command from the project directory, in order.
+2. If every command exits `0`, the loop ends.
+3. If any command fails, `LOOP_DONE` is **rejected**. The agent gets the command output and must keep working (or emit `LOOP_BLOCKED`).
+
+`LOOP_BLOCKED` always stops the loop without running verify.
+
+Nudges while the loop is active list the required checks so the agent knows what must pass.
+
+---
+
+## Persistence
+
+Loop state is stored in OpenCode's local SQLite database (`session_loop`).
+
+That means:
+
+- Goal, deadline, round count, and verify commands survive process restarts
+- After a restart, continuing the session can resume the same loop
+- Finishing (`LOOP_DONE` after verify, `LOOP_BLOCKED`, budget exhausted, or `/loop stop`) clears the stored state
+
+---
+
+## Tips
+
+- Prefer a concrete goal with an obvious done condition.
+- Pair `/loop` with `loop.verify` for unattended work so completion is not honor-system.
+- Use round or time budgets on large goals so a stuck agent cannot run forever.
+- For project conventions the agent should follow every round, put them in [`AGENTS.md`](/docs/rules).
+- OpenCode also [remembers failed tool calls](/docs/tools#failed-attempt-memory) in the project so long loops are less likely to repeat the same broken command.

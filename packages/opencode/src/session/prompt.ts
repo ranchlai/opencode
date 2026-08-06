@@ -326,7 +326,7 @@ export namespace SessionPrompt {
         lastUser.id < lastAssistant.id
       ) {
         const last = msgs.find((msg) => msg.info.id === lastAssistant.id)
-        const text = SessionLoop.tick(sessionID, last)
+        const text = await SessionLoop.tick(sessionID, last)
         if (text) {
           const continueMsg = await Session.updateMessage({
             id: MessageID.ascending(),
@@ -1928,7 +1928,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       return result
     }
     if (loop?.kind === "start") {
-      SessionLoop.start(input.sessionID, {
+      await SessionLoop.start(input.sessionID, {
         goal: loop.goal,
         deadline: loop.deadline,
         max: loop.max,

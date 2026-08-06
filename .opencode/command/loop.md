@@ -1,3 +1,7 @@
+---
+description: autonomous loop [2h|50] <goal|@doc> — keeps working across compaction; /loop stop to end
+---
+
 You are running in autonomous loop mode for a long-running goal.
 
 Work until the goal is fully complete. Do not stop after a partial step.

@@ -507,6 +507,25 @@ You can control context compaction behavior through the `compaction` option.
 
 ---
 
+### Loop
+
+Configure autonomous [`/loop`](/docs/loop) behavior.
+
+```json title="opencode.json"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "loop": {
+    "verify": ["bun typecheck", "bun test"]
+  }
+}
+```
+
+- `verify` - Shell commands that must exit `0` before `LOOP_DONE` is accepted. Commands run from the project directory in order. If a command fails, the loop continues with the failure output. `LOOP_BLOCKED` skips verification.
+
+[Learn more about `/loop`](/docs/loop).
+
+---
+
 ### Watcher
 
 You can configure file watcher ignore patterns through the `watcher` option.

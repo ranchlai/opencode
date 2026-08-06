@@ -352,6 +352,34 @@ Custom tools let you define your own functions that the LLM can call. These are 
 
 ---
 
+## Failed-attempt memory
+
+OpenCode remembers tool calls that failed in the current project and warns the agent if it retries the same call.
+
+What counts as a failure:
+
+- The tool throws an error
+- A tool returns a nonzero `exit` code in its metadata (for example `bash`)
+
+When the same tool and arguments fail again later, OpenCode prepends a warning to the tool output:
+
+```text
+WARNING: this exact tool call failed earlier in this project.
+Tool: bash
+Previous error: ...
+Do not repeat the same failing approach — change the command, inputs, or strategy.
+```
+
+Notes:
+
+- Memory is **project-scoped** and stored in the local SQLite database (`memory` table).
+- Matching uses a hash of the tool name plus arguments, so a changed command or input is treated as new.
+- A later **successful** call with the same arguments clears that failure entry.
+- This is a soft gate: the tool still runs; the warning steers the model away from repeating a known failure.
+- Useful with [`/loop`](/docs/loop) so long runs do not thrash on the same broken command.
+
+---
+
 ## MCP servers
 
 MCP (Model Context Protocol) servers allow you to integrate external tools and services. This includes database access, API integrations, and third-party services.

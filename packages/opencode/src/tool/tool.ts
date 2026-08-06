@@ -4,6 +4,7 @@ import type { Agent } from "../agent/agent"
 import type { PermissionNext } from "../permission/next"
 import type { SessionID, MessageID } from "../session/schema"
 import { Truncate } from "./truncation"
+import { Memory } from "../session/memory"
 
 export namespace Tool {
   interface Metadata {
@@ -67,20 +68,46 @@ export namespace Tool {
               { cause: error },
             )
           }
-          const result = await execute(args, ctx)
-          // skip truncation for tools that handle it themselves
-          if (result.metadata.truncated !== undefined) {
-            return result
-          }
-          const truncated = await Truncate.output(result.output, {}, initCtx?.agent)
-          return {
-            ...result,
-            output: truncated.content,
-            metadata: {
-              ...result.metadata,
-              truncated: truncated.truncated,
-              ...(truncated.truncated && { outputPath: truncated.outputPath }),
-            },
+          const hint = (() => {
+            try {
+              return Memory.warn(id, args)
+            } catch {
+              return
+            }
+          })()
+          try {
+            const result = await execute(args, ctx)
+            try {
+              const err = Memory.failed(result)
+              if (err) Memory.record({ tool: id, args, error: err })
+              else Memory.forget(id, args)
+            } catch {
+              // memory must not break tools
+            }
+            // skip truncation for tools that handle it themselves
+            const output = hint ? `${hint}\n\n${result.output}` : result.output
+            if (result.metadata.truncated !== undefined) {
+              return { ...result, output }
+            }
+            const truncated = await Truncate.output(output, {}, initCtx?.agent)
+            return {
+              ...result,
+              output: truncated.content,
+              metadata: {
+                ...result.metadata,
+                truncated: truncated.truncated,
+                ...(truncated.truncated && { outputPath: truncated.outputPath }),
+                ...(hint && { memory: true }),
+              },
+            }
+          } catch (error) {
+            try {
+              const msg = error instanceof Error ? error.message : String(error)
+              Memory.record({ tool: id, args, error: msg })
+            } catch {
+              // memory must not break tools
+            }
+            throw error
           }
         }
         return toolInfo

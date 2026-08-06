@@ -163,6 +163,19 @@ Create or update `AGENTS.md` file. [Learn more](/docs/rules).
 
 ---
 
+### loop
+
+Run a long-horizon goal autonomously until done, blocked, or a budget expires. [Learn more](/docs/loop).
+
+```bash frame="none"
+/loop 2h ship the feature
+/loop stop
+```
+
+Optional budgets: a duration (`2h`, `30m`) and/or a round count (`50`). Configure `loop.verify` in [config](/docs/config#loop) so `LOOP_DONE` only sticks when your checks pass.
+
+---
+
 ### models
 
 List available models.

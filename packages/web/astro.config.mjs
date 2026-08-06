@@ -257,6 +257,7 @@ export default defineConfig({
             "themes",
             "keybinds",
             "commands",
+            "loop",
             "formatters",
             "permissions",
             "lsp",

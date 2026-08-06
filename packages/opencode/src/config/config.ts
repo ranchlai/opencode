@@ -1201,6 +1201,17 @@ export namespace Config {
             .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
         })
         .optional(),
+      loop: z
+        .object({
+          verify: z
+            .array(z.string())
+            .optional()
+            .describe(
+              "Shell commands that must exit 0 before LOOP_DONE is accepted in autonomous /loop mode. Run from the project directory.",
+            ),
+        })
+        .optional()
+        .describe("Autonomous /loop settings"),
       experimental: z
         .object({
           disable_stream: z.boolean().optional().describe("Disable streaming and use generateText for all LLM calls"),
