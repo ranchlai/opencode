@@ -7,7 +7,6 @@ import { Instance } from "../project/instance"
 import { Flag } from "@/flag/flag"
 import { Log } from "../util/log"
 import { Glob } from "../util/glob"
-import { ConfigMarkdown } from "../config/markdown"
 import { CursorRule } from "./rule"
 import type { MessageV2 } from "./message-v2"
 
