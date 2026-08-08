@@ -5,6 +5,8 @@ description: Set custom instructions for opencode.
 
 You can provide custom instructions to opencode by creating an `AGENTS.md` file. This is similar to Cursor's rules. It contains instructions that will be included in the LLM's context to customize its behavior for your specific project.
 
+If you already use Cursor, you can also keep rules in `.cursor/rules/*.mdc` — opencode discovers and applies those automatically. See [Cursor Rules](#cursor-rules-mdc).
+
 ---
 
 ## Initialize
@@ -89,10 +91,54 @@ export OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1 # Disable only .claude/skills
 When opencode starts, it looks for rule files in this order:
 
 1. **Local files** by traversing up from the current directory (`AGENTS.md`, `CLAUDE.md`)
-2. **Global file** at `~/.config/opencode/AGENTS.md`
-3. **Claude Code file** at `~/.claude/CLAUDE.md` (unless disabled)
+2. **Cursor rules** in `.cursor/rules/**/*.mdc` (see [Cursor Rules](#cursor-rules-mdc))
+3. **Global file** at `~/.config/opencode/AGENTS.md`
+4. **Claude Code file** at `~/.claude/CLAUDE.md` (unless disabled)
 
-The first matching file wins in each category. For example, if you have both `AGENTS.md` and `CLAUDE.md`, only `AGENTS.md` is used. Similarly, `~/.config/opencode/AGENTS.md` takes precedence over `~/.claude/CLAUDE.md`.
+The first matching file wins in each category for `AGENTS.md` / `CLAUDE.md`. For example, if you have both `AGENTS.md` and `CLAUDE.md`, only `AGENTS.md` is used. Similarly, `~/.config/opencode/AGENTS.md` takes precedence over `~/.claude/CLAUDE.md`. Cursor `.mdc` rules are loaded in addition to those files, using their frontmatter modes.
+
+---
+
+## Cursor Rules (`.mdc`)
+
+opencode automatically discovers Cursor project rules in `.cursor/rules/**/*.mdc` and applies them based on frontmatter, the same way Cursor does.
+
+Create a rule file:
+
+```markdown title=".cursor/rules/typescript.mdc"
+---
+description: TypeScript conventions for this project
+globs: src/**/*.ts, src/**/*.tsx
+alwaysApply: false
+---
+
+- Prefer `const` over `let`
+- Use Bun APIs when available
+```
+
+### Frontmatter
+
+| Field | Type | Purpose |
+| :----------- | :-------------- | :-------------------------------------------------- |
+| `alwaysApply` | `boolean` | When `true`, include the rule in every session |
+| `globs` | `string` or `string[]` | Auto-attach when a matching file is read |
+| `description` | `string` | Let the agent load the rule when the task matches |
+
+How those fields combine:
+
+| `alwaysApply` | `description` | `globs` | Behavior |
+| :------------ | :------------ | :------- | :--------------------------------------------------------------- |
+| `true` | — | — | Always included. Globs and description are ignored. |
+| `false` | — | provided | Auto-attached when a matching file is read. |
+| `false` | provided | omitted | Listed for the agent; it Reads the rule when relevant. |
+| `false` | omitted | omitted | Manual — include the file with `@` or Read it explicitly. |
+
+Notes:
+
+- Only `.mdc` files under `.cursor/rules/` are auto-discovered. Plain `.md` files there are ignored unless you add them via `instructions`.
+- Frontmatter is stripped before the rule body is injected into the prompt.
+- Nested `.cursor/rules/` directories between your working directory and the repo root are also scanned.
+- You do **not** need to list `.cursor/rules/*.mdc` in `opencode.json` — discovery is automatic. If you do list them, opencode still respects frontmatter modes and will not double-load them.
 
 ---
 
@@ -105,7 +151,7 @@ Example:
 ```json title="opencode.json"
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["CONTRIBUTING.md", "docs/guidelines.md", ".cursor/rules/*.md"]
+  "instructions": ["CONTRIBUTING.md", "docs/guidelines.md"]
 }
 ```
 

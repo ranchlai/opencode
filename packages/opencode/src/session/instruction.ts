@@ -7,6 +7,8 @@ import { Instance } from "../project/instance"
 import { Flag } from "@/flag/flag"
 import { Log } from "../util/log"
 import { Glob } from "../util/glob"
+import { ConfigMarkdown } from "../config/markdown"
+import { CursorRule } from "./rule"
 import type { MessageV2 } from "./message-v2"
 
 const log = Log.create({ service: "instruction" })
@@ -42,6 +44,15 @@ async function resolveRelative(instruction: string): Promise<string[]> {
   return Filesystem.globUp(instruction, Flag.OPENCODE_CONFIG_DIR, Flag.OPENCODE_CONFIG_DIR).catch(() => [])
 }
 
+async function readInstruction(filepath: string) {
+  if (filepath.endsWith(".mdc")) {
+    const rule = await CursorRule.parse(filepath)
+    return rule ? CursorRule.format(rule) : ""
+  }
+  const content = await Filesystem.readText(filepath).catch(() => "")
+  return content ? "Instructions from: " + filepath + "\n" + content : ""
+}
+
 export namespace InstructionPrompt {
   const state = Instance.state(() => {
     return {
@@ -72,6 +83,7 @@ export namespace InstructionPrompt {
   export async function systemPaths() {
     const config = await Config.get()
     const paths = new Set<string>()
+    const known = await CursorRule.paths()
 
     if (!Flag.OPENCODE_DISABLE_PROJECT_CONFIG) {
       for (const file of FILES) {
@@ -92,6 +104,10 @@ export namespace InstructionPrompt {
       }
     }
 
+    for (const rule of await CursorRule.always()) {
+      paths.add(rule.path)
+    }
+
     if (config.instructions) {
       for (let instruction of config.instructions) {
         if (instruction.startsWith("https://") || instruction.startsWith("http://")) continue
@@ -106,7 +122,10 @@ export namespace InstructionPrompt {
             }).catch(() => [])
           : await resolveRelative(instruction)
         matches.forEach((p) => {
-          paths.add(path.resolve(p))
+          const resolved = path.resolve(p)
+          // discovered .cursor/rules/*.mdc are handled by CursorRule modes
+          if (known.has(resolved)) return
+          paths.add(resolved)
         })
       }
     }
@@ -117,10 +136,13 @@ export namespace InstructionPrompt {
   export async function system() {
     const config = await Config.get()
     const paths = await systemPaths()
+    const always = await CursorRule.always()
+    const agents = await CursorRule.agent()
 
     const files = Array.from(paths).map(async (p) => {
-      const content = await Filesystem.readText(p).catch(() => "")
-      return content ? "Instructions from: " + p + "\n" + content : ""
+      const rule = always.find((item) => item.path === p)
+      if (rule) return CursorRule.format(rule)
+      return readInstruction(p)
     })
 
     const urls: string[] = []
@@ -138,7 +160,10 @@ export namespace InstructionPrompt {
         .then((x) => (x ? "Instructions from: " + url + "\n" + x : "")),
     )
 
-    return Promise.all([...files, ...fetches]).then((result) => result.filter(Boolean))
+    const catalog = CursorRule.catalog(agents)
+    const loaded = await Promise.all([...files, ...fetches]).then((result) => result.filter(Boolean))
+    if (catalog) loaded.push(catalog)
+    return loaded
   }
 
   export function loaded(messages: MessageV2.WithParts[]) {
@@ -185,6 +210,14 @@ export namespace InstructionPrompt {
         }
       }
       current = path.dirname(current)
+    }
+
+    for (const rule of await CursorRule.forFile(target)) {
+      if (rule.path === target || system.has(rule.path) || already.has(rule.path) || isClaimed(messageID, rule.path)) {
+        continue
+      }
+      claim(messageID, rule.path)
+      results.push({ filepath: rule.path, content: CursorRule.format(rule) })
     }
 
     return results

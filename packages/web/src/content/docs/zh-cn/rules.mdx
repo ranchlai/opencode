@@ -5,6 +5,8 @@ description: 为 opencode 设置自定义指令。
 
 您可以通过创建 `AGENTS.md` 文件来为 opencode 提供自定义指令。这类似于 Cursor 的规则功能。该文件包含的指令会被纳入 LLM 的上下文中，以便针对您的特定项目自定义其行为。
 
+如果您已在使用 Cursor，也可以继续把规则放在 `.cursor/rules/*.mdc` — opencode 会自动发现并应用它们。详见 [Cursor 规则](#cursor-规则-mdc)。
+
 ---
 
 ## 初始化
@@ -89,10 +91,54 @@ export OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1 # Disable only .claude/skills
 当 opencode 启动时，它会按以下顺序查找规则文件：
 
 1. **本地文件**，从当前目录向上遍历（`AGENTS.md`、`CLAUDE.md`）
-2. **全局文件**，位于 `~/.config/opencode/AGENTS.md`
-3. **Claude Code 文件**，位于 `~/.claude/CLAUDE.md`（除非已禁用）
+2. **Cursor 规则**，位于 `.cursor/rules/**/*.mdc`（见 [Cursor 规则](#cursor-规则-mdc)）
+3. **全局文件**，位于 `~/.config/opencode/AGENTS.md`
+4. **Claude Code 文件**，位于 `~/.claude/CLAUDE.md`（除非已禁用）
 
-在每个类别中，第一个匹配的文件优先。例如，如果您同时拥有 `AGENTS.md` 和 `CLAUDE.md`，则只会使用 `AGENTS.md`。同样，`~/.config/opencode/AGENTS.md` 优先于 `~/.claude/CLAUDE.md`。
+对于 `AGENTS.md` / `CLAUDE.md`，在每个类别中第一个匹配的文件优先。例如，如果您同时拥有 `AGENTS.md` 和 `CLAUDE.md`，则只会使用 `AGENTS.md`。同样，`~/.config/opencode/AGENTS.md` 优先于 `~/.claude/CLAUDE.md`。Cursor 的 `.mdc` 规则会在这些文件之外额外加载，并按其 frontmatter 模式生效。
+
+---
+
+## Cursor 规则 (`.mdc`)
+
+opencode 会自动发现 `.cursor/rules/**/*.mdc` 中的 Cursor 项目规则，并根据 frontmatter 应用它们，行为与 Cursor 一致。
+
+创建规则文件：
+
+```markdown title=".cursor/rules/typescript.mdc"
+---
+description: 本项目的 TypeScript 约定
+globs: src/**/*.ts, src/**/*.tsx
+alwaysApply: false
+---
+
+- 优先使用 `const` 而不是 `let`
+- 可用时优先使用 Bun API
+```
+
+### Frontmatter
+
+| 字段 | 类型 | 作用 |
+| :----------- | :-------------- | :-------------------------------------------------- |
+| `alwaysApply` | `boolean` | 为 `true` 时，每个会话都会注入该规则 |
+| `globs` | `string` 或 `string[]` | 读取匹配文件时自动附加 |
+| `description` | `string` | 任务相关时由 agent 自行 Read 加载 |
+
+字段如何组合：
+
+| `alwaysApply` | `description` | `globs` | 行为 |
+| :------------ | :------------ | :------- | :--------------------------------------------------------------- |
+| `true` | — | — | 始终注入，忽略 globs 与 description |
+| `false` | — | 有值 | 读取匹配文件时自动附加 |
+| `false` | 有值 | 省略 | 列入可用规则列表，agent 在相关时 Read |
+| `false` | 省略 | 省略 | 手动 — 用 `@` 提及或显式 Read |
+
+说明：
+
+- 仅自动发现 `.cursor/rules/` 下的 `.mdc` 文件。其中的普通 `.md` 文件会被忽略，除非你通过 `instructions` 添加。
+- 注入提示词前会去掉 frontmatter，只保留正文。
+- 也会扫描工作目录到仓库根之间的嵌套 `.cursor/rules/`。
+- **不需要**在 `opencode.json` 里写 `.cursor/rules/*.mdc` — 会自动发现。若你仍写了，opencode 会按 frontmatter 模式处理且不会重复加载。
 
 ---
 
@@ -105,7 +151,7 @@ export OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1 # Disable only .claude/skills
 ```json title="opencode.json"
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["CONTRIBUTING.md", "docs/guidelines.md", ".cursor/rules/*.md"]
+  "instructions": ["CONTRIBUTING.md", "docs/guidelines.md"]
 }
 ```
 
