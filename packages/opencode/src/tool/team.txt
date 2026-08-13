@@ -1,0 +1,20 @@
+Coordinate a flat multi-agent team (lead + named teammates).
+
+Actions:
+- create: create a team; caller becomes lead. Args: name (team name), delegate?
+- spawn: lead only. Start a teammate in the background. Args: member (teammate name; name= also ok), agent, prompt, model?, worktree?, plan_approval?
+- message: send text to a member name, "lead", or "*". Args: to, text
+- tasks: shared board. Args: task_action=list|add|claim|complete, title?, task_id?, deps?
+- status: snapshot of members + task counts + badge label
+- approve / reject: lead only. Unlock/keep locked writes after plan review. Args: member
+- merge: lead only. Merge a member's worktree branch into the project. Args: member
+- shutdown: lead only. Stop one member or all. Args: member?
+- cleanup: lead only. Disband team and remove worktrees
+
+Rules:
+- Prefer 2-3 teammates with concrete prompts
+- Writers get git worktrees by default; explore/read-only should set worktree=false
+- Use plan_approval=true for risky writers
+- Nested task subagents cannot use this tool
+- Only lead can create/spawn/shutdown/cleanup/approve/reject/merge
+- Lead is auto-woken when members finish or message; do not end a turn only waiting

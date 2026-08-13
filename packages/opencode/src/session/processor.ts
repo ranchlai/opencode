@@ -403,16 +403,28 @@ export namespace SessionProcessor {
             snapshot = undefined
           }
           const p = await MessageV2.parts(input.assistantMessage.id)
+          const cause = (() => {
+            if (input.abort.aborted) return "interrupted by user"
+            const err = input.assistantMessage.error
+            if (err?.name === "MessageAbortedError") return "interrupted by user"
+            if (err?.data && typeof err.data === "object" && "message" in err.data) {
+              return String((err.data as { message: unknown }).message)
+            }
+            if (err?.name) return err.name
+            if (blocked) return "blocked by permission or question"
+            return "missing tool result before step finished"
+          })()
           for (const part of p) {
             if (part.type === "tool" && part.state.status !== "completed" && part.state.status !== "error") {
+              const start = part.state.status === "running" ? part.state.time.start : Date.now()
               await Session.updatePart({
                 ...part,
                 state: {
                   ...part.state,
                   status: "error",
-                  error: "Tool execution aborted",
+                  error: abortMsg(part, cause),
                   time: {
-                    start: Date.now(),
+                    start,
                     end: Date.now(),
                   },
                 },
@@ -429,5 +441,29 @@ export namespace SessionProcessor {
       },
     }
     return result
+  }
+
+  function abortMsg(part: MessageV2.ToolPart, cause: string) {
+    const args = argSummary("input" in part.state ? part.state.input : undefined)
+    const lines = [
+      "Tool execution aborted",
+      `tool: ${part.tool}`,
+      `status: ${part.state.status}`,
+      `reason: ${cause}`,
+    ]
+    if (args) lines.push(`args: ${args}`)
+    return lines.join("\n")
+  }
+
+  function argSummary(input: unknown) {
+    if (!input || typeof input !== "object") return ""
+    return Object.entries(input as Record<string, unknown>)
+      .filter(([, v]) => typeof v === "string" || typeof v === "number" || typeof v === "boolean")
+      .slice(0, 6)
+      .map(([k, v]) => {
+        const s = String(v)
+        return `${k}=${s.length > 80 ? `${s.slice(0, 80)}…` : s}`
+      })
+      .join(", ")
   }
 }

@@ -14,7 +14,7 @@ import { getFilename } from "@opencode-ai/util/path"
 import { retry } from "@opencode-ai/util/retry"
 import { batch } from "solid-js"
 import { reconcile, type SetStoreFunction, type Store } from "solid-js/store"
-import type { State, VcsCache } from "./types"
+import type { State, TeamSnapshot, VcsCache } from "./types"
 import { cmp, normalizeProviderList } from "./utils"
 import { formatServerError } from "@/utils/server-errors"
 
@@ -200,6 +200,20 @@ export async function bootstrapDirectory(input: {
         }
       })
     }),
+    (input.sdk as unknown as { client: { get: (opts: { url: string }) => Promise<{ data?: TeamSnapshot[] }> } }).client
+      .get({ url: "/experimental/team" })
+      .then((x) => {
+        const list = x.data ?? []
+        batch(() => {
+          input.setStore("team", {})
+          for (const snap of list) {
+            for (const member of snap.members) {
+              input.setStore("team", member.sessionID, snap)
+            }
+          }
+        })
+      })
+      .catch(() => undefined),
   ]).then(() => {
     input.setStore("status", "complete")
   })

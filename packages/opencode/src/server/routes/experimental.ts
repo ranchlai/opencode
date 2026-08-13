@@ -8,6 +8,9 @@ import { Instance } from "../../project/instance"
 import { Project } from "../../project/project"
 import { MCP } from "../../mcp"
 import { Session } from "../../session"
+import { SessionID } from "../../session/schema"
+import { Team } from "../../team"
+import { Flag } from "../../flag/flag"
 import { zodToJsonSchema } from "zod-to-json-schema"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
@@ -266,6 +269,54 @@ export const ExperimentalRoutes = lazy(() =>
       }),
       async (c) => {
         return c.json(await MCP.resources())
+      },
+    )
+    .get(
+      "/team",
+      describeRoute({
+        summary: "List active teams",
+        description: "List active agent teams for the current project (experimental team mode).",
+        operationId: "experimental.team.list",
+        responses: {
+          200: {
+            description: "Active teams",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(Team.Snapshot)),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        if (!Flag.OPENCODE_EXPERIMENTAL_TEAM_MODE) return c.json([])
+        return c.json(Team.listActive())
+      },
+    )
+    .get(
+      "/team/session/:sessionID",
+      describeRoute({
+        summary: "Get team for session",
+        description: "Get the active team snapshot for a session, if any.",
+        operationId: "experimental.team.get",
+        responses: {
+          200: {
+            description: "Team snapshot or null",
+            content: {
+              "application/json": {
+                schema: resolver(Team.Snapshot.nullable()),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      async (c) => {
+        if (!Flag.OPENCODE_EXPERIMENTAL_TEAM_MODE) return c.json(null)
+        const sessionID = SessionID.make(c.req.param("sessionID"))
+        const ctx = Team.bySession(sessionID)
+        if (!ctx) return c.json(null)
+        return c.json(Team.snapshot(ctx.team.id) ?? null)
       },
     ),
 )

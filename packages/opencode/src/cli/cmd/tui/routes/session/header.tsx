@@ -41,6 +41,17 @@ const WorkspaceInfo = (props: { workspace: Accessor<string | undefined> }) => {
   )
 }
 
+const TeamInfo = (props: { label: Accessor<string | undefined> }) => {
+  const { theme } = useTheme()
+  return (
+    <Show when={props.label()}>
+      <text fg={theme.primary} wrapMode="none" flexShrink={0}>
+        {props.label()}
+      </text>
+    </Show>
+  )
+}
+
 export function Header() {
   const route = useRouteData("session")
   const sync = useSync()
@@ -79,6 +90,11 @@ export function Header() {
     return `Workspace ${id} (${info.type})`
   })
 
+  const team = createMemo(() => {
+    if (!Flag.OPENCODE_EXPERIMENTAL_TEAM_MODE) return
+    return sync.data.team[route.sessionID]?.label
+  })
+
   const { theme } = useTheme()
   const keybind = useKeybind()
   const command = useCommandDialog()
@@ -109,11 +125,15 @@ export function Header() {
                       <b>Subagent session</b>
                     </text>
                     <WorkspaceInfo workspace={workspace} />
+                    <TeamInfo label={team} />
                   </box>
                 ) : (
-                  <text fg={theme.text}>
-                    <b>Subagent session</b>
-                  </text>
+                  <box flexDirection="column">
+                    <text fg={theme.text}>
+                      <b>Subagent session</b>
+                    </text>
+                    <TeamInfo label={team} />
+                  </box>
                 )}
 
                 <ContextInfo context={context} cost={cost} />
@@ -158,9 +178,13 @@ export function Header() {
                 <box flexDirection="column">
                   <Title session={session} />
                   <WorkspaceInfo workspace={workspace} />
+                  <TeamInfo label={team} />
                 </box>
               ) : (
-                <Title session={session} />
+                <box flexDirection="column">
+                  <Title session={session} />
+                  <TeamInfo label={team} />
+                </box>
               )}
               <ContextInfo context={context} cost={cost} />
             </box>

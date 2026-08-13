@@ -7,8 +7,10 @@ import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import PROMPT_LOOP from "./template/loop.txt"
+import PROMPT_TEAM from "./template/team.txt"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
+import { Flag } from "@/flag/flag"
 
 export namespace Command {
   export const Event = {
@@ -57,6 +59,7 @@ export namespace Command {
     INIT: "init",
     REVIEW: "review",
     LOOP: "loop",
+    TEAM: "team",
   } as const
 
   const state = Instance.state(async () => {
@@ -91,6 +94,18 @@ export namespace Command {
         },
         hints: hints(PROMPT_LOOP),
       },
+    }
+
+    if (Flag.OPENCODE_EXPERIMENTAL_TEAM_MODE) {
+      result[Default.TEAM] = {
+        name: Default.TEAM,
+        description: "start an agent team for a goal — spawn specialists, share tasks, coordinate",
+        source: "command",
+        get template() {
+          return PROMPT_TEAM
+        },
+        hints: hints(PROMPT_TEAM),
+      }
     }
 
     for (const [name, command] of Object.entries(cfg.command ?? {})) {

@@ -246,6 +246,11 @@ export function MessageTimeline(props: {
     if (!id) return idle
     return sync.data.session_status[id] ?? idle
   })
+  const teamLabel = createMemo(() => {
+    const id = sessionID()
+    if (!id) return
+    return sync.data.team[id]?.label
+  })
   const working = createMemo(() => !!pending() || sessionStatus().type !== "idle")
   const tint = createMemo(() => messageAgentColor(sessionMessages(), sync.data.agent))
 
@@ -675,7 +680,7 @@ export function MessageTimeline(props: {
                         aria-label={language.t("common.goBack")}
                       />
                     </Show>
-                    <div class="flex items-center min-w-0 grow-1">
+                    <div class="flex items-center min-w-0 grow-1 gap-2">
                       <div
                         class="shrink-0 flex items-center justify-center overflow-hidden transition-[width,margin] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
                         style={{
@@ -731,6 +736,16 @@ export function MessageTimeline(props: {
                             onBlur={closeTitleEditor}
                           />
                         </Show>
+                      </Show>
+                      <Show when={teamLabel()}>
+                        {(label) => (
+                          <span
+                            class="hidden sm:inline text-12-regular text-text-interactive-base truncate shrink min-w-0 max-w-[45%]"
+                            title={label()}
+                          >
+                            {label()}
+                          </span>
+                        )}
                       </Show>
                     </div>
                   </div>

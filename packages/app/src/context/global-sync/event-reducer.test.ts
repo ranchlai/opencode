@@ -81,6 +81,7 @@ const baseState = (input: Partial<State> = {}) =>
     limit: 10,
     message: {},
     part: {},
+    team: {},
     ...input,
   }) as State
 
@@ -548,5 +549,59 @@ describe("applyDirectoryEvent", () => {
 
     expect(pushes).toEqual(["/tmp"])
     expect(lspLoads).toBe(1)
+  })
+
+  test("applies and clears team snapshots", () => {
+    const [store, setStore] = createStore(baseState())
+    const snap = {
+      teamID: "tea_1",
+      name: "audit",
+      leadSessionID: "ses_lead",
+      delegate: false,
+      label: "team:audit · 1 busy",
+      members: [
+        {
+          name: "lead",
+          role: "lead",
+          agent: "build",
+          status: "busy",
+          sessionID: "ses_lead",
+          planApproval: "none",
+        },
+        {
+          name: "scout",
+          role: "member",
+          agent: "explore",
+          status: "busy",
+          sessionID: "ses_scout",
+          planApproval: "none",
+        },
+      ],
+      tasks: { pending: 0, blocked: 0, claimed: 0, done: 0, total: 0 },
+    }
+
+    applyDirectoryEvent({
+      event: { type: "team.created", properties: { snapshot: snap } },
+      store,
+      setStore,
+      push() {},
+      directory: "/tmp",
+      loadLsp() {},
+    })
+
+    expect(store.team.ses_lead?.label).toBe("team:audit · 1 busy")
+    expect(store.team.ses_scout?.name).toBe("audit")
+
+    applyDirectoryEvent({
+      event: { type: "team.disbanded", properties: { teamID: "tea_1" } },
+      store,
+      setStore,
+      push() {},
+      directory: "/tmp",
+      loadLsp() {},
+    })
+
+    expect(store.team.ses_lead).toBeUndefined()
+    expect(store.team.ses_scout).toBeUndefined()
   })
 })

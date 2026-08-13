@@ -93,6 +93,11 @@ export const TaskTool = Tool.define("task", async (ctx) => {
                     action: "deny" as const,
                   },
                 ]),
+            {
+              permission: "team",
+              pattern: "*",
+              action: "deny",
+            },
             ...(config.experimental?.primary_tools?.map((t) => ({
               pattern: "*",
               action: "allow" as const,
@@ -137,6 +142,7 @@ export const TaskTool = Tool.define("task", async (ctx) => {
         tools: {
           todowrite: false,
           todoread: false,
+          team: false,
           ...(hasTaskPermission ? {} : { task: false }),
           ...Object.fromEntries((config.experimental?.primary_tools ?? []).map((t) => [t, false])),
         },

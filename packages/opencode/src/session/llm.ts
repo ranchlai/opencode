@@ -336,7 +336,6 @@ export namespace LLM {
               providerMetadata: undefined,
             }
           }
-          // Emit tool-result events for each tool call
           for (const tr of result.toolResults ?? []) {
             l.info("emit event", { type: "tool-result", toolCallId: tr.toolCallId, toolName: tr.toolName })
             yield {
@@ -345,6 +344,30 @@ export namespace LLM {
               toolName: tr.toolName,
               input: tr.input,
               output: tr.output,
+            }
+          }
+          // generateText puts failed calls in steps as tool-error, not toolResults.
+          // Without these, the processor leaves tools "running" and shows "Tool execution aborted".
+          for (const step of result.steps ?? []) {
+            for (const part of step.content ?? []) {
+              if (part.type !== "tool-error") continue
+              const err = part.error
+              const message =
+                err instanceof Error
+                  ? err.message
+                  : typeof err === "string"
+                    ? err
+                    : err && typeof err === "object" && "message" in err && typeof err.message === "string"
+                      ? err.message
+                      : "Tool execution failed"
+              l.info("emit event", { type: "tool-error", toolCallId: part.toolCallId, toolName: part.toolName })
+              yield {
+                type: "tool-error" as const,
+                toolCallId: part.toolCallId,
+                toolName: part.toolName,
+                input: part.input,
+                error: new Error(message),
+              }
             }
           }
         }

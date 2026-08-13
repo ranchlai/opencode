@@ -29,6 +29,10 @@ import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
 import type { Path } from "@opencode-ai/sdk"
 import type { Workspace } from "@opencode-ai/sdk/v2"
+import { Flag } from "@/flag/flag"
+import type { Team } from "@/team"
+
+type TeamSnapshot = Team.Snapshot
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -75,6 +79,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       vcs: VcsInfo | undefined
       path: Path
       workspaceList: Workspace[]
+      team: {
+        [sessionID: string]: TeamSnapshot
+      }
     }>({
       provider_next: {
         all: [],
@@ -103,9 +110,42 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       vcs: undefined,
       path: { state: "", config: "", worktree: "", directory: "" },
       workspaceList: [],
+      team: {},
     })
 
     const sdk = useSDK()
+
+    function applyTeam(snap: TeamSnapshot) {
+      setStore(
+        "team",
+        produce((draft) => {
+          for (const member of snap.members) {
+            draft[member.sessionID] = snap
+          }
+        }),
+      )
+    }
+
+    function clearTeam(teamID: string) {
+      setStore(
+        "team",
+        produce((draft) => {
+          for (const [sessionID, snap] of Object.entries(draft)) {
+            if (snap.teamID === teamID) delete draft[sessionID]
+          }
+        }),
+      )
+    }
+
+    async function syncTeams() {
+      if (!Flag.OPENCODE_EXPERIMENTAL_TEAM_MODE) return
+      const headers: Record<string, string> = {}
+      if (sdk.directory) headers["x-opencode-directory"] = sdk.directory
+      const res = await sdk.fetch(new URL("/experimental/team", sdk.url), { headers }).catch(() => undefined)
+      if (!res?.ok) return
+      const list = (await res.json().catch(() => [])) as TeamSnapshot[]
+      for (const snap of list) applyTeam(snap)
+    }
 
     async function syncWorkspaces() {
       const result = await sdk.client.experimental.workspace.list().catch(() => undefined)
@@ -115,6 +155,16 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     sdk.event.listen((e) => {
       const event = e.details
+      const type = event.type as string
+      if (type.startsWith("team.")) {
+        if (type === "team.disbanded") {
+          clearTeam((event as unknown as { properties: { teamID: string } }).properties.teamID)
+          return
+        }
+        const snap = (event as unknown as { properties?: { snapshot?: TeamSnapshot } }).properties?.snapshot
+        if (snap) applyTeam(snap)
+        return
+      }
       switch (event.type) {
         case "server.instance.disposed":
           bootstrap()
@@ -423,6 +473,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.vcs.get().then((x) => setStore("vcs", reconcile(x.data))),
             sdk.client.path.get().then((x) => setStore("path", reconcile(x.data!))),
             syncWorkspaces(),
+            syncTeams(),
           ]).then(() => {
             setStore("status", "complete")
           })

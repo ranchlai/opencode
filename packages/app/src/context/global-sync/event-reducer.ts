@@ -11,7 +11,7 @@ import type {
   SessionStatus,
   Todo,
 } from "@opencode-ai/sdk/v2/client"
-import type { State, VcsCache } from "./types"
+import type { State, TeamSnapshot, VcsCache } from "./types"
 import { trimSessions } from "./session-trim"
 import { dropSessionCaches } from "./session-cache"
 
@@ -68,6 +68,7 @@ export function cleanupDroppedSessionCaches(
     ...Object.keys(store.permission),
     ...Object.keys(store.question),
     ...Object.keys(store.session_status),
+    ...Object.keys(store.team ?? {}),
     ...Object.values(store.part)
       .map((parts) => parts?.find((part) => !!part?.sessionID)?.sessionID)
       .filter((sessionID): sessionID is string => !!sessionID),
@@ -83,6 +84,28 @@ export function cleanupDroppedSessionCaches(
   )
 }
 
+function applyTeamSnapshot(setStore: SetStoreFunction<State>, snap: TeamSnapshot) {
+  setStore(
+    "team",
+    produce((draft) => {
+      for (const member of snap.members) {
+        draft[member.sessionID] = snap
+      }
+    }),
+  )
+}
+
+function clearTeam(setStore: SetStoreFunction<State>, teamID: string) {
+  setStore(
+    "team",
+    produce((draft) => {
+      for (const [sessionID, snap] of Object.entries(draft)) {
+        if (snap.teamID === teamID) delete draft[sessionID]
+      }
+    }),
+  )
+}
+
 export function applyDirectoryEvent(input: {
   event: { type: string; properties?: unknown }
   store: Store<State>
@@ -94,6 +117,19 @@ export function applyDirectoryEvent(input: {
   setSessionTodo?: (sessionID: string, todos: Todo[] | undefined) => void
 }) {
   const event = input.event
+  const type = event.type
+
+  if (type.startsWith("team.")) {
+    if (type === "team.disbanded") {
+      const props = event.properties as { teamID: string }
+      clearTeam(input.setStore, props.teamID)
+      return
+    }
+    const snap = (event.properties as { snapshot?: TeamSnapshot } | undefined)?.snapshot
+    if (snap) applyTeamSnapshot(input.setStore, snap)
+    return
+  }
+
   switch (event.type) {
     case "server.instance.disposed": {
       input.push(input.directory)

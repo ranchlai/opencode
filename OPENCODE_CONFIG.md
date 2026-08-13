@@ -460,7 +460,12 @@ Env: `OPENCODE_DISABLE_LSP_DOWNLOAD=1` prevents auto-download.
     "openTelemetry": false,
     "primary_tools": ["edit", "bash"],
     "continue_loop_on_deny": false,
-    "mcp_timeout": 30000
+    "mcp_timeout": 30000,
+    "team": {
+      "max_members": 4,
+      "default_worktree": true,
+      "heartbeat_ms": 60000
+    }
   }
 }
 ```
@@ -474,6 +479,55 @@ Env: `OPENCODE_DISABLE_LSP_DOWNLOAD=1` prevents auto-download.
 | `primary_tools` | Tools only available to primary agents |
 | `continue_loop_on_deny` | Keep agent loop going when a tool is denied |
 | `mcp_timeout` | MCP request timeout (ms) |
+| `team` | Team mode settings (requires `OPENCODE_EXPERIMENTAL_TEAM_MODE=1`; see below) |
+
+**`experimental.team`** (fork / experimental multi-agent teams):
+
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `max_members` | `4` (max `8`) | Cap on teammates (not counting the lead) |
+| `default_worktree` | `true` | Writers get an isolated git worktree |
+| `heartbeat_ms` | `60000` | Busy teammates without a heartbeat are marked `error` |
+
+Enable team mode with `OPENCODE_EXPERIMENTAL_TEAM_MODE=1` (or `OPENCODE_EXPERIMENTAL=1`). Then use `/team <goal>` in the TUI. See `packages/opencode/src/team/README.md` for the full workflow.
+
+**Override the `/team` lead prompt** (useful for smaller models): define a custom command named `team` — it replaces the built-in slash template. Prefer a short, explicit prompt (e.g. require `member=` on spawn, max 2 teammates, call `status` after spawn).
+
+Markdown (recommended):
+
+```markdown
+<!-- .opencode/commands/team.md -->
+---
+description: start an agent team for a goal
+---
+
+You are the lead of a small agent team.
+
+## Goal
+$ARGUMENTS
+
+1. team action=create with a short name.
+2. Add 1–2 tasks (action=tasks, task_action=add).
+3. Spawn at most 2 teammates (action=spawn): set member=, agent=, prompt=, and worktree=false for explore.
+4. Call action=status; when woken by idle teammates, synthesize and action=cleanup.
+
+One tool call at a time. Keep teammate prompts short.
+```
+
+Or JSON:
+
+```json
+{
+  "command": {
+    "team": {
+      "description": "start an agent team for a goal",
+      "template": "You are the lead…\n\n## Goal\n$ARGUMENTS\n…"
+    }
+  }
+}
+```
+
+Not configurable via config yet: tool description (`team` tool), active-session system blurb (`Team.prompt()`), and spawned-member bootstrap text.
 
 Many experimental features are **env-gated** (see §8), not only this object.
 
@@ -583,6 +637,7 @@ Disable Claude/external skills: `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1` or `OPEN
 - JSON: `command.<name>`
 - Markdown: `{command,commands}/**/*.md`
 - Invoke in TUI as slash commands; template may use `$ARGUMENTS`.
+- Same-name user commands **override** built-ins (e.g. `.opencode/commands/team.md` replaces `/team` when team mode is enabled). See §4.12 for a `/team` example tuned for weaker models.
 
 ### Plugins
 
@@ -663,6 +718,7 @@ Truthy = `"true"` or `"1"` (case-insensitive).
 | `OPENCODE_EXPERIMENTAL_LSP_TY` | Prefer `ty` LSP |
 | `OPENCODE_EXPERIMENTAL_LSP_TOOL` | Enable `lsp` tool |
 | `OPENCODE_EXPERIMENTAL_PLAN_MODE` | Plan enter/exit tools |
+| `OPENCODE_EXPERIMENTAL_TEAM_MODE` | Multi-agent `/team` + `team` tool (also via `OPENCODE_EXPERIMENTAL=1`) |
 | `OPENCODE_EXPERIMENTAL_WORKSPACES` | Workspaces |
 | `OPENCODE_EXPERIMENTAL_MARKDOWN` | Markdown renderer (default **on** unless `"false"`/`"0"`) |
 

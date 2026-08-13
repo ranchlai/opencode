@@ -31,6 +31,32 @@ export type ProjectMeta = {
   }
 }
 
+export type TeamSnapshot = {
+  teamID: string
+  name: string
+  leadSessionID: string
+  delegate: boolean
+  label: string
+  members: Array<{
+    name: string
+    role: string
+    agent: string
+    status: string
+    sessionID: string
+    planApproval: string
+    worktree?: string
+    branch?: string
+    error?: string
+  }>
+  tasks: {
+    pending: number
+    blocked: number
+    claimed: number
+    done: number
+    total: number
+  }
+}
+
 export type State = {
   status: "loading" | "partial" | "complete"
   agent: Agent[]
@@ -69,6 +95,9 @@ export type State = {
   }
   part: {
     [messageID: string]: Part[]
+  }
+  team: {
+    [sessionID: string]: TeamSnapshot
   }
 }
 

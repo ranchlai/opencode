@@ -680,9 +680,13 @@ export namespace SessionPrompt {
 
       // Build system prompt, adding structured output instruction if needed
       const skills = await SystemPrompt.skills(agent)
+      const team = Flag.OPENCODE_EXPERIMENTAL_TEAM_MODE
+        ? await import("@/team").then((mod) => mod.Team.prompt(sessionID))
+        : undefined
       const system = [
         ...(await SystemPrompt.environment(model)),
         ...(skills ? [skills] : []),
+        ...(team ? [team] : []),
         ...(await InstructionPrompt.system()),
       ]
       const format = lastUser.format ?? { type: "text" }

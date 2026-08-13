@@ -1232,6 +1232,28 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          team: z
+            .object({
+              max_members: z
+                .number()
+                .int()
+                .min(1)
+                .max(8)
+                .optional()
+                .describe("Maximum teammate count per team (default 4)"),
+              default_worktree: z
+                .boolean()
+                .optional()
+                .describe("Create a git worktree for writing teammates (default true)"),
+              heartbeat_ms: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .describe("Mark busy teammates stuck after this many ms without heartbeat (default 60000)"),
+            })
+            .optional()
+            .describe("Experimental team mode settings"),
         })
         .optional(),
     })
