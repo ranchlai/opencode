@@ -47,7 +47,7 @@ export const TeamTool = Tool.define("team", async () => {
     parameters,
     async execute(params: z.infer<typeof parameters>, ctx) {
       if (!Flag.OPENCODE_EXPERIMENTAL_TEAM_MODE) {
-        throw new Error("team mode disabled; set OPENCODE_EXPERIMENTAL_TEAM_MODE=1")
+        throw new Error("team mode disabled; set OPENCODE_EXPERIMENTAL_TEAM_MODE=0 to leave it off")
       }
 
       Team.heartbeat(ctx.sessionID)

@@ -2,18 +2,14 @@
 
 Flat multi-agent teams for OpenCode: one **lead** session plus named **teammates** that work in parallel, message each other, and share a task board.
 
-This is a private-fork feature. Enable it explicitly; default OpenCode behavior is unchanged when the flag is off.
+Expert groups are on by default. Disable with `OPENCODE_EXPERIMENTAL_TEAM_MODE=0`.
 
 ## Enable
 
-```bash
-OPENCODE_EXPERIMENTAL_TEAM_MODE=1 opencode
-```
-
-Or enable all experimental flags (includes team mode):
+On by default. To turn off:
 
 ```bash
-OPENCODE_EXPERIMENTAL=1 opencode
+OPENCODE_EXPERIMENTAL_TEAM_MODE=0 opencode
 ```
 
 Optional `opencode.json`:
@@ -245,7 +241,7 @@ Lead → merge builder → cleanup
 
 | Symptom | Check |
 | --- | --- |
-| No `team` tool / no `/team` | `OPENCODE_EXPERIMENTAL_TEAM_MODE=1` |
+| No `team` tool / no `/team` | `OPENCODE_EXPERIMENTAL_TEAM_MODE` is `0` |
 | No header badge | Session must be on an active team; refresh / wait for Bus events |
 | `members cannot spawn` | Only the lead can spawn |
 | Claim fails | Task already claimed, done, or deps not complete |

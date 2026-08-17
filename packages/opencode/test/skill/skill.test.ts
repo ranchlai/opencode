@@ -5,6 +5,14 @@ import { tmpdir } from "../fixture/fixture"
 import path from "path"
 import fs from "fs/promises"
 
+function local<T extends { location: string }>(items: T[], root: string) {
+  return items.filter((item) => item.location.startsWith(root))
+}
+
+function localDirs(dirs: string[], root: string) {
+  return dirs.filter((dir) => dir.startsWith(root))
+}
+
 async function createGlobalSkill(homeDir: string) {
   const skillDir = path.join(homeDir, ".claude", "skills", "global-test-skill")
   await fs.mkdir(skillDir, { recursive: true })
@@ -45,7 +53,7 @@ Instructions here.
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      const skills = await Skill.all()
+      const skills = local(await Skill.all(), tmp.path)
       expect(skills.length).toBe(1)
       const testSkill = skills.find((s) => s.name === "test-skill")
       expect(testSkill).toBeDefined()
@@ -80,7 +88,7 @@ description: Skill for dirs test.
     await Instance.provide({
       directory: tmp.path,
       fn: async () => {
-        const dirs = await Skill.dirs()
+        const dirs = localDirs(await Skill.dirs(), tmp.path)
         const skillDir = path.join(tmp.path, ".opencode", "skill", "dir-skill")
         expect(dirs).toContain(skillDir)
         expect(dirs.length).toBe(1)
@@ -123,7 +131,7 @@ description: Second test skill.
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      const skills = await Skill.all()
+      const skills = local(await Skill.all(), tmp.path)
       expect(skills.length).toBe(2)
       expect(skills.find((s) => s.name === "skill-one")).toBeDefined()
       expect(skills.find((s) => s.name === "skill-two")).toBeDefined()
@@ -149,7 +157,7 @@ Just some content without YAML frontmatter.
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      const skills = await Skill.all()
+      const skills = local(await Skill.all(), tmp.path)
       expect(skills).toEqual([])
     },
   })
@@ -176,7 +184,7 @@ description: A skill in the .claude/skills directory.
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      const skills = await Skill.all()
+      const skills = local(await Skill.all(), tmp.path)
       expect(skills.length).toBe(1)
       const claudeSkill = skills.find((s) => s.name === "claude-skill")
       expect(claudeSkill).toBeDefined()
@@ -196,7 +204,7 @@ test("discovers global skills from ~/.claude/skills/ directory", async () => {
     await Instance.provide({
       directory: tmp.path,
       fn: async () => {
-        const skills = await Skill.all()
+        const skills = local(await Skill.all(), tmp.path)
         expect(skills.length).toBe(1)
         expect(skills[0].name).toBe("global-test-skill")
         expect(skills[0].description).toBe("A global skill from ~/.claude/skills for testing.")
@@ -214,7 +222,7 @@ test("returns empty array when no skills exist", async () => {
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      const skills = await Skill.all()
+      const skills = local(await Skill.all(), tmp.path)
       expect(skills).toEqual([])
     },
   })
@@ -241,7 +249,7 @@ description: A skill in the .agents/skills directory.
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      const skills = await Skill.all()
+      const skills = local(await Skill.all(), tmp.path)
       expect(skills.length).toBe(1)
       const agentSkill = skills.find((s) => s.name === "agent-skill")
       expect(agentSkill).toBeDefined()
@@ -275,7 +283,7 @@ This skill is loaded from the global home directory.
     await Instance.provide({
       directory: tmp.path,
       fn: async () => {
-        const skills = await Skill.all()
+        const skills = local(await Skill.all(), tmp.path)
         expect(skills.length).toBe(1)
         expect(skills[0].name).toBe("global-agent-skill")
         expect(skills[0].description).toBe("A global skill from ~/.agents/skills for testing.")
@@ -319,7 +327,7 @@ description: A skill in the .agents/skills directory.
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      const skills = await Skill.all()
+      const skills = local(await Skill.all(), tmp.path)
       expect(skills.length).toBe(2)
       expect(skills.find((s) => s.name === "claude-skill")).toBeDefined()
       expect(skills.find((s) => s.name === "agent-skill")).toBeDefined()
@@ -381,8 +389,23 @@ description: A skill in the .opencode/skills directory.
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      const dirs = await Skill.dirs()
+      const dirs = localDirs(await Skill.dirs(), tmp.path)
       expect(dirs.length).toBe(4)
+    },
+  })
+})
+
+test("discovers bundled office skills", async () => {
+  await using tmp = await tmpdir({ git: true })
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const skills = await Skill.all()
+      const names = skills.map((s) => s.name)
+      expect(names).toContain("reports")
+      expect(names).toContain("spreadsheets")
+      expect(names).toContain("slides")
+      expect(names).toContain("meeting-notes")
     },
   })
 })

@@ -584,7 +584,16 @@ export default function Layout(props: ParentProps) {
         const last = server.projects.last()
 
         if (value.list.length === 0) {
-          if (!last) return
+          if (!last) {
+            const home = globalSync.data.path.home
+            if (!home) return
+            const sep = home.includes("\\") && !home.startsWith("/") ? "\\" : "/"
+            const work = home.endsWith("/") || home.endsWith("\\") ? `${home}Work` : `${home}${sep}Work`
+            setState("autoselect", false)
+            openProject(work, false)
+            navigateToProject(work)
+            return
+          }
           setState("autoselect", false)
           openProject(last, false)
           navigateToProject(last)

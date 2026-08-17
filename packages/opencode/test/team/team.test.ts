@@ -1,8 +1,9 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test, spyOn, beforeAll, afterAll } from "bun:test"
 import path from "path"
 import { Log } from "../../src/util/log"
 import { Instance } from "../../src/project/instance"
 import { Session } from "../../src/session"
+import { SessionPrompt } from "../../src/session/prompt"
 import { Team } from "../../src/team"
 import { Database } from "../../src/storage/db"
 import { TeamMemberTable } from "../../src/team/team.sql"
@@ -11,6 +12,18 @@ import { tmpdir } from "../fixture/fixture"
 Log.init({ print: false })
 
 describe("team mode", () => {
+  let prompt: ReturnType<typeof spyOn>
+  let cancel: ReturnType<typeof spyOn>
+
+  beforeAll(() => {
+    prompt = spyOn(SessionPrompt, "prompt").mockImplementation(async () => undefined as never)
+    cancel = spyOn(SessionPrompt, "cancel").mockImplementation(() => undefined)
+  })
+
+  afterAll(() => {
+    prompt.mockRestore()
+    cancel.mockRestore()
+  })
   test("create team and manage tasks", async () => {
     await using tmp = await tmpdir({ git: true })
     await Instance.provide({
@@ -20,6 +33,7 @@ describe("team mode", () => {
         const team = await Team.create({ name: "audit", sessionID: session.id })
         expect(team.name).toBe("audit")
         expect(Team.bySession(session.id)?.member.role).toBe("lead")
+        expect(Team.bySession(session.id)?.member.agent).toBe("work")
         expect(Team.label(team.id)).toContain("team:audit")
 
         const first = Team.addTask({ sessionID: session.id, title: "map codebase" })
@@ -241,6 +255,28 @@ describe("team mode", () => {
         expect(Team.bySession(child.id)?.member.status).toBe("error")
 
         await Session.remove(child.id)
+        await Session.remove(lead.id)
+      },
+    })
+  })
+
+  test("spawn writer without worktree", async () => {
+    await using tmp = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const lead = await Session.create({})
+        await Team.create({ name: "docs", sessionID: lead.id })
+        const out = await Team.spawn({
+          sessionID: lead.id,
+          member: "scribe",
+          agent: "writer",
+          prompt: "draft a memo",
+          worktree: false,
+        })
+        expect(out.member.agent).toBe("writer")
+        expect(out.worktree).toBeUndefined()
+        await Team.cleanup({ sessionID: lead.id })
         await Session.remove(lead.id)
       },
     })

@@ -133,7 +133,7 @@ export const dict = {
   "provider.connect.apiKey.placeholder": "API key",
   "provider.connect.apiKey.required": "API key is required",
   "provider.connect.opencodeZen.line1":
-    "OpenCode Zen gives you access to a curated set of reliable optimized models for coding agents.",
+    "OpenCode Zen gives you access to a curated set of reliable optimized models.",
   "provider.connect.opencodeZen.line2":
     "With a single API key you'll get access to models such as Claude, GPT, Gemini, GLM and more.",
   "provider.connect.opencodeZen.visit.prefix": "Visit ",
@@ -513,8 +513,8 @@ export const dict = {
   "notification.session.error.fallbackDescription": "An error occurred",
 
   "home.recentProjects": "Recent projects",
-  "home.empty.title": "No recent projects",
-  "home.empty.description": "Get started by opening a local project",
+  "home.empty.title": "No recent folders",
+  "home.empty.description": "Open a local folder to start. Try ~/Work for office files.",
 
   "session.tab.session": "Session",
   "session.tab.review": "Review",

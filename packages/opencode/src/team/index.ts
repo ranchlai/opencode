@@ -330,7 +330,7 @@ export namespace Team {
           team_id: id,
           name: "lead",
           session_id: input.sessionID,
-          agent: "build",
+          agent: "work",
           role: "lead",
           status: "busy",
           directory: Instance.directory,
@@ -1088,8 +1088,8 @@ export namespace Team {
     if (ctx.member.role === "lead") {
       return [
         `You are lead of team "${ctx.team.name}"${ctx.team.delegate ? " in delegate mode (coordination only)" : ""}.`,
-        "Use the team tool to spawn ≤3 specialists, share tasks, message, approve plans, and merge worktrees.",
-        "Do not finish the user goal until the task board is clear or explicitly dropped.",
+        "Use the team tool to spawn ≤3 specialists (researcher, writer, analyst; build only for software), share tasks, message, approve plans, and merge worktrees.",
+        "Office members use worktree=false. Do not finish the user goal until the task board is clear or explicitly dropped.",
         `Status: ${label(ctx.team.id)}`,
       ].join(" ")
     }

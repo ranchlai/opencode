@@ -18,13 +18,53 @@ test("returns default native agents when no config", async () => {
     fn: async () => {
       const agents = await Agent.list()
       const names = agents.map((a) => a.name)
+      expect(names).toContain("work")
       expect(names).toContain("build")
       expect(names).toContain("plan")
+      expect(names).toContain("writer")
+      expect(names).toContain("researcher")
+      expect(names).toContain("analyst")
       expect(names).toContain("general")
       expect(names).toContain("explore")
       expect(names).toContain("compaction")
       expect(names).toContain("title")
       expect(names).toContain("summary")
+    },
+  })
+})
+
+test("work agent is the default primary with write access", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const work = await Agent.get("work")
+      expect(work).toBeDefined()
+      expect(work?.mode).toBe("primary")
+      expect(work?.native).toBe(true)
+      expect(evalPerm(work, "edit")).toBe("allow")
+      expect(evalPerm(work, "bash")).toBe("allow")
+      const listed = await Agent.list()
+      expect(listed[0]?.name).toBe("work")
+    },
+  })
+})
+
+test("writer researcher and analyst are selectable experts", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const writer = await Agent.get("writer")
+      const researcher = await Agent.get("researcher")
+      const analyst = await Agent.get("analyst")
+      expect(writer?.mode).toBe("all")
+      expect(researcher?.mode).toBe("all")
+      expect(analyst?.mode).toBe("all")
+      expect(evalPerm(writer, "edit")).toBe("allow")
+      expect(evalPerm(researcher, "webfetch")).toBe("allow")
+      expect(evalPerm(researcher, "todowrite")).toBe("deny")
+      expect(evalPerm(analyst, "edit")).toBe("allow")
     },
   })
 })
@@ -564,13 +604,13 @@ description: Permission skill.
   }
 })
 
-test("defaultAgent returns build when no default_agent config", async () => {
+test("defaultAgent returns work when no default_agent config", async () => {
   await using tmp = await tmpdir()
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
       const agent = await Agent.defaultAgent()
-      expect(agent).toBe("build")
+      expect(agent).toBe("work")
     },
   })
 })
@@ -652,11 +692,11 @@ test("defaultAgent throws when default_agent points to non-existent agent", asyn
   })
 })
 
-test("defaultAgent returns plan when build is disabled and default_agent not set", async () => {
+test("defaultAgent returns build when work is disabled and default_agent not set", async () => {
   await using tmp = await tmpdir({
     config: {
       agent: {
-        build: { disable: true },
+        work: { disable: true },
       },
     },
   })
@@ -664,8 +704,7 @@ test("defaultAgent returns plan when build is disabled and default_agent not set
     directory: tmp.path,
     fn: async () => {
       const agent = await Agent.defaultAgent()
-      // build is disabled, so it should return plan (next primary agent)
-      expect(agent).toBe("plan")
+      expect(agent).toBe("build")
     },
   })
 })
@@ -674,15 +713,18 @@ test("defaultAgent throws when all primary agents are disabled", async () => {
   await using tmp = await tmpdir({
     config: {
       agent: {
+        work: { disable: true },
         build: { disable: true },
         plan: { disable: true },
+        writer: { disable: true },
+        researcher: { disable: true },
+        analyst: { disable: true },
       },
     },
   })
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
-      // build and plan are disabled, no primary-capable agents remain
       await expect(Agent.defaultAgent()).rejects.toThrow("no primary visible agent found")
     },
   })

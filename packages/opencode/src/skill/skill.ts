@@ -104,6 +104,19 @@ export namespace Skill {
         })
     }
 
+    const bundled = path.join(import.meta.dirname, "../../skills")
+    if (await Filesystem.isDir(bundled)) {
+      const matches = await Glob.scan(SKILL_PATTERN, {
+        cwd: bundled,
+        absolute: true,
+        include: "file",
+        symlink: true,
+      })
+      for (const match of matches) {
+        await addSkill(match)
+      }
+    }
+
     // Scan external skill directories (.claude/skills/, .agents/skills/, etc.)
     // Load global (home) first, then project-level (so project-level overwrites)
     if (!Flag.OPENCODE_DISABLE_EXTERNAL_SKILLS) {

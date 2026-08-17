@@ -3,6 +3,7 @@ import { Project } from "../../src/project/project"
 import { Log } from "../../src/util/log"
 import { $ } from "bun"
 import path from "path"
+import fs from "fs/promises"
 import { tmpdir } from "../fixture/fixture"
 import { Filesystem } from "../../src/util/filesystem"
 import { GlobalBus } from "../../src/bus/global"
@@ -135,6 +136,43 @@ describe("Project.fromDirectory", () => {
       expect(project.worktree).toBe(tmp.path)
       expect(sandbox).toBe(tmp.path)
     })
+  })
+})
+
+describe("Project.fromDirectory without git", () => {
+  test("gives each folder its own id and worktree", async () => {
+    const p = await loadProject()
+    await using a = await tmpdir()
+    await using b = await tmpdir()
+
+    const first = await p.fromDirectory(a.path)
+    const second = await p.fromDirectory(b.path)
+
+    expect(first.project.id).not.toBe(ProjectID.global)
+    expect(second.project.id).not.toBe(ProjectID.global)
+    expect(first.project.id).not.toBe(second.project.id)
+    expect(first.project.worktree).toBe(a.path)
+    expect(second.project.worktree).toBe(b.path)
+    expect(first.project.vcs).not.toBe("git")
+  })
+
+  test("does not use a git repo in HOME for a nested folder", async () => {
+    const p = await loadProject()
+    await using tmp = await tmpdir()
+    await $`git init`.cwd(tmp.path).quiet()
+    const work = path.join(tmp.path, "Work")
+    await fs.mkdir(work)
+
+    const home = process.env.OPENCODE_TEST_HOME
+    process.env.OPENCODE_TEST_HOME = tmp.path
+    try {
+      const { project } = await p.fromDirectory(work)
+      expect(project.vcs).not.toBe("git")
+      expect(project.id).not.toBe(ProjectID.global)
+      expect(project.worktree).toBe(Filesystem.resolve(work))
+    } finally {
+      process.env.OPENCODE_TEST_HOME = home
+    }
   })
 })
 

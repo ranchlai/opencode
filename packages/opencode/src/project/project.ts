@@ -1,6 +1,7 @@
 import z from "zod"
 import { Filesystem } from "../util/filesystem"
 import path from "path"
+import fs from "fs/promises"
 import { and, Database, eq } from "../storage/db"
 import { ProjectTable } from "./project.sql"
 import { SessionTable } from "../session/session.sql"
@@ -15,6 +16,8 @@ import { git } from "../util/git"
 import { Glob } from "../util/glob"
 import { which } from "../util/which"
 import { ProjectID } from "./schema"
+import { Hash } from "../util/hash"
+import { Global } from "@/global"
 
 export namespace Project {
   const log = Log.create({ service: "project" })
@@ -95,13 +98,35 @@ export namespace Project {
       .catch(() => undefined)
   }
 
+  export function workdir() {
+    return path.join(Global.Path.home, "Work")
+  }
+
+  async function findGit(directory: string) {
+    const start = Filesystem.resolve(directory)
+    const home = Filesystem.resolve(Global.Path.home)
+    for await (const match of Filesystem.up({ targets: [".git"], start: directory })) {
+      const dir = path.dirname(match)
+      if (dir === home && start !== home) break
+      return match
+    }
+  }
+
+  function folder(directory: string) {
+    const resolved = Filesystem.resolve(directory)
+    return {
+      id: ProjectID.make(Hash.fast(resolved)),
+      worktree: resolved,
+      sandbox: resolved,
+      vcs: Info.shape.vcs.parse(Flag.OPENCODE_FAKE_VCS),
+    }
+  }
+
   export async function fromDirectory(directory: string) {
     log.info("fromDirectory", { directory })
 
     const data = await iife(async () => {
-      const matches = Filesystem.up({ targets: [".git"], start: directory })
-      const dotgit = await matches.next().then((x) => x.value)
-      await matches.return()
+      const dotgit = await findGit(directory)
       if (dotgit) {
         let sandbox = path.dirname(dotgit)
 
@@ -209,12 +234,12 @@ export namespace Project {
         }
       }
 
-      return {
-        id: ProjectID.global,
-        worktree: "/",
-        sandbox: "/",
-        vcs: Info.shape.vcs.parse(Flag.OPENCODE_FAKE_VCS),
+      const resolved = Filesystem.resolve(directory)
+      const work = workdir()
+      if (resolved === Filesystem.resolve(work)) {
+        await fs.mkdir(resolved, { recursive: true })
       }
+      return folder(directory)
     })
 
     const row = Database.use((db) => db.select().from(ProjectTable).where(eq(ProjectTable.id, data.id)).get())

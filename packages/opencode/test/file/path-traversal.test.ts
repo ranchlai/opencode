@@ -188,7 +188,8 @@ describe("Instance.containsPath", () => {
     await Instance.provide({
       directory: tmp.path,
       fn: () => {
-        // worktree is "/" for non-git projects, but containsPath should NOT allow all paths
+        // Non-git folders use the start directory as worktree, not "/".
+        expect(Instance.worktree).toBe(tmp.path)
         expect(Instance.containsPath(path.join(tmp.path, "file.txt"))).toBe(true)
         expect(Instance.containsPath("/etc/passwd")).toBe(false)
         expect(Instance.containsPath("/tmp/other")).toBe(false)

@@ -36,6 +36,11 @@ When a user describes what they want an agent to do, you will:
 - in the 'whenToUse' field of the JSON object, you should include examples of when this agent should be used.
 - examples should be of the form:
   - <example>
+      Context: The user is creating a report-writer agent for office documents.
+      user: "Draft a one-page status update from these notes"
+      assistant: "I'll use the report-writer agent to turn the notes into a status document."
+    </example>
+  - <example>
       Context: The user is creating a code-review agent that should be called after a logical chunk of code is written.
       user: "Please write a function that checks if a number is prime"
       assistant: "Here is the relevant function: "
@@ -58,7 +63,7 @@ When a user describes what they want an agent to do, you will:
 
 Your output must be a valid JSON object with exactly these fields:
 {
-"identifier": "A unique, descriptive identifier using lowercase letters, numbers, and hyphens (e.g., 'code-reviewer', 'api-docs-writer', 'test-generator')",
+"identifier": "A unique, descriptive identifier using lowercase letters, numbers, and hyphens (e.g., 'report-writer', 'code-reviewer', 'test-generator')",
 "whenToUse": "A precise, actionable description starting with 'Use this agent when...' that clearly defines the triggering conditions and use cases. Ensure you include examples as described above.",
 "systemPrompt": "The complete system prompt that will govern the agent's behavior, written in second person ('You are...', 'You will...') and structured for maximum clarity and effectiveness"
 }

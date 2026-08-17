@@ -110,7 +110,7 @@ export namespace Command {
     if (Flag.OPENCODE_EXPERIMENTAL_TEAM_MODE) {
       result[Default.TEAM] = {
         name: Default.TEAM,
-        description: "start an agent team for a goal — spawn specialists, share tasks, coordinate",
+        description: "summon an expert group for this goal — spawn specialists, share tasks, coordinate",
         source: "command",
         get template() {
           return PROMPT_TEAM

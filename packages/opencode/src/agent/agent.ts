@@ -12,6 +12,9 @@ import { ProviderTransform } from "../provider/transform"
 import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
+import PROMPT_WRITER from "./prompt/writer.txt"
+import PROMPT_RESEARCHER from "./prompt/researcher.txt"
+import PROMPT_ANALYST from "./prompt/analyst.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import { PermissionNext } from "@/permission/next"
@@ -75,9 +78,24 @@ export namespace Agent {
     const user = PermissionNext.fromConfig(cfg.permission ?? {})
 
     const result: Record<string, Info> = {
+      work: {
+        name: "work",
+        description: "The default agent. Handles documents, research, analysis, planning, and software.",
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            question: "allow",
+            plan_enter: "allow",
+          }),
+          user,
+        ),
+        mode: "primary",
+        native: true,
+      },
       build: {
         name: "build",
-        description: "The default agent. Executes tools based on configured permissions.",
+        description: "Software engineering agent. Use for code changes, tests, refactors, and git worktrees.",
         options: {},
         permission: PermissionNext.merge(
           defaults,
@@ -149,10 +167,76 @@ export namespace Agent {
           }),
           user,
         ),
-        description: `Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.`,
+        description: `Fast agent specialized for exploring folders, documents, and codebases. Use this when you need to quickly find files by patterns, search for keywords, or answer questions about the workspace. When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.`,
         prompt: PROMPT_EXPLORE,
         options: {},
         mode: "subagent",
+        native: true,
+      },
+      writer: {
+        name: "writer",
+        description:
+          "Document and copy specialist. Use for reports, briefs, emails, slides, and meeting notes. Prefer a workspace file over chat.",
+        prompt: PROMPT_WRITER,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            question: "allow",
+            lsp: "deny",
+            codesearch: "deny",
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+      },
+      researcher: {
+        name: "researcher",
+        description:
+          "Research specialist. Use to search local files and the web, then return a sourced brief. Write a file only when asked to save it.",
+        prompt: PROMPT_RESEARCHER,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            webfetch: "allow",
+            websearch: "allow",
+            codesearch: "allow",
+            read: "allow",
+            write: "allow",
+            edit: "allow",
+            skill: "allow",
+            external_directory: {
+              "*": "ask",
+              ...Object.fromEntries(whitelistedDirs.map((dir) => [dir, "allow"])),
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+      },
+      analyst: {
+        name: "analyst",
+        description:
+          "Data specialist. Use for spreadsheets, CSV, messy tables, summaries, and charts saved as workspace files.",
+        prompt: PROMPT_ANALYST,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            question: "allow",
+            lsp: "deny",
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
         native: true,
       },
       compaction: {
@@ -260,7 +344,7 @@ export namespace Agent {
     return pipe(
       await state(),
       values(),
-      sortBy([(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "build"), "desc"]),
+      sortBy([(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "work"), "desc"]),
     )
   }
 
