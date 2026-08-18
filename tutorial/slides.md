@@ -1,7 +1,7 @@
 ---
 marp: true
 title: How to use OpenCode
-description: Basics, agent loop, then advanced — /loop, /team, rules, CLI
+description: Basics, Superpowers, Ralph Loop, agent loop, then /loop, /team
 paginate: true
 ---
 
@@ -22,11 +22,12 @@ This fork — TUI, `/loop`, `/team`, and project control
 1. **Basics** — what it is, first session, TUI
 2. **Shape the agent** — config, rules, permissions
 3. **Extend it** — commands, skills, tools, plugins, MCP
-4. **The agent loop** — one turn until stop
-5. **Run unattended** — `/loop` wraps that loop
-6. **Run in parallel** — `/team`
-7. **Ops** — non-streaming, CLI, serve
-8. **When to use what**
+4. **Superpowers** — design → plan → TDD
+5. **The agent loop** — one turn until stop
+6. **Ralph Loop / `/loop`** — AFK until the goal is done
+7. **Run in parallel** — `/team`
+8. **Ops** — non-streaming, CLI, serve
+9. **When to use what**
 
 ---
 
@@ -287,6 +288,128 @@ Enable few servers. GitHub-style MCPs can blow the window.
 
 <!-- Slide 15 -->
 
+# Superpowers — a methodology plugin
+
+Not a new slash command. This checkout already loads it in `opencode.json`.
+
+| Piece | Role |
+| --- | --- |
+| **Bootstrap** (`using-superpowers`) | Injected into the first user message. If a skill might apply, invoke it *before* answering. |
+| **Skills** | Playbooks: brainstorming, TDD, systematic-debugging, … |
+| **Plugin** | Registers those skills and injects the bootstrap |
+
+- **TDD** — no production code without a failing test first
+- **Systematic** — root cause before a fix
+- **YAGNI** — smallest design that works
+
+Skills are **mandatory**, not hints. Independent of `/loop` and `/team` — brainstorm first, then use those to execute.
+
+---
+
+<!-- Slide 16 -->
+
+# Superpowers — how it loads
+
+```json
+"plugin": ["superpowers@git+https://github.com/obra/superpowers.git"]
+```
+
+On start: clone the git spec → inject bootstrap into the **first** user message → skills via the `skill` tool.
+
+Smoke check in a **new** session (`/new`):
+
+```text
+Tell me about your superpowers
+```
+
+It should name the library and the rule: **invoke skills before acting**. Then try:
+
+```text
+Let's add a CLI flag that prints loaded plugins and exits.
+```
+
+Expect **brainstorming** (questions, a short design, your OK) — not code yet.
+
+---
+
+<!-- Slide 17 -->
+
+# Superpowers — default feature path
+
+```text
+brainstorming     → spec (you approve)
+writing-plans     → plan file
+TDD per task      → red → green → refactor (+ review)
+finish the branch
+```
+
+| You say | Skill first |
+| --- | --- |
+| “Let's build X” | **brainstorming** — no code until you OK the design |
+| “Fix this bug” | **systematic-debugging** |
+| Implement the plan | **test-driven-development** |
+
+Hard gate: “this is too simple” still gets a short design. After that, `/loop` or `/team` if the work is long or parallel.
+
+---
+
+<!-- Slide 18 -->
+
+# Ralph Loop — keep going until done
+
+Named after **Ralph Wiggum** (*The Simpsons*): try, fail, try again — do not quit.
+
+A pattern for an AI coding assistant that **iterates on its own** until a complex task is actually finished. Not a one-shot answer.
+
+Ordinary assistants stop after one think-act round and often leave the work half done. Ralph Loop **refuses to idle**.
+
+This fork’s `/loop` is that pattern: done token, intercept the stop, continue until the goal (or a budget) says stop.
+
+---
+
+<!-- Slide 19 -->
+
+# Ralph Loop — mechanism
+
+From “answer once” to “keep working”:
+
+1. Give a **task** and a **done token** (classic: `<promise>DONE</promise>`; here: `LOOP_DONE`)
+2. AI works: edit, test, commit
+3. **Intercept the exit** — when it would stop, a stop-hook / tick catches it
+4. **Check the token**
+   - missing → feed the original goal again, continue from the repo
+   - present → loop ends
+5. **Accumulate in the filesystem** — each round may get a fresh (or compacted) window; progress lives in code, tests, git, logs
+
+```text
+work → about to stop → token?  no → nudge / re-prompt → work
+                         yes → done
+```
+
+---
+
+<!-- Slide 20 -->
+
+# Ralph Loop — HITL, AFK, safety
+
+**Value:** short **AFK** (away from keyboard). Set the task, walk away, come back to review.
+
+| Mode | When |
+| --- | --- |
+| **HITL** (human in the loop) | Watch every step; interrupt and steer. Best for learning and debugging. |
+| **AFK** | Trust the prompt and the boundary; let it run. |
+
+**Safety (do not loop forever):**
+
+- **Max iterations** — hard cap (here: `/loop 50` or a deadline `2h`)
+- **Manual stop** — `/loop stop` (classic Ralph: `/cancel-ralph`)
+
+**Not the same as TDD / YAGNI.** Those are *how to write good code*. Ralph is *how to keep the AI working*. Combine them: each round is red → green → refactor; the prompt says YAGNI — only the smallest code for this task.
+
+---
+
+<!-- Slide 21 -->
+
 # The agent loop
 
 OpenCode is not “one LLM call per prompt”.
@@ -304,7 +427,7 @@ The rest of this section is the **session loop**. `/loop` sits on top of it.
 
 ---
 
-<!-- Slide 16 -->
+<!-- Slide 22 -->
 
 # One picture
 
@@ -334,7 +457,7 @@ Status: **busy** inside the loop, **idle** when it exits.
 
 ---
 
-<!-- Slide 17 -->
+<!-- Slide 23 -->
 
 # One step (the LLM turn)
 
@@ -352,7 +475,7 @@ Then the **session loop looks at `finish`** and decides: another iteration, comp
 
 ---
 
-<!-- Slide 18 -->
+<!-- Slide 24 -->
 
 # Why it keeps going
 
@@ -371,7 +494,7 @@ So “the agent loop” **is** tool-calling: read → think → edit → test �
 
 ---
 
-<!-- Slide 19 -->
+<!-- Slide 25 -->
 
 # Compaction mid-loop
 
@@ -392,7 +515,7 @@ This is why `/loop` can run for hours: compaction is a **loop iteration**, not t
 
 ---
 
-<!-- Slide 20 -->
+<!-- Slide 26 -->
 
 # Inside the processor
 
@@ -409,7 +532,7 @@ Subagents (`task` / `@explore`) are **not** a nested session loop in the lead: t
 
 ---
 
-<!-- Slide 21 -->
+<!-- Slide 27 -->
 
 # How `/loop` uses this
 
@@ -432,11 +555,13 @@ That synthetic message is just another user turn — the **same** session loop s
 
 ---
 
-<!-- Slide 22 -->
+<!-- Slide 28 -->
 
 # `/loop` — long goals
 
-Keeps working across **compaction**. You do not babysit “continue”.
+This fork’s **Ralph Loop**. Keeps working across **compaction**. You do not babysit “continue”.
+
+Done token here is **`LOOP_DONE`** (or **`LOOP_BLOCKED`** if it needs you).
 
 ```text
 /loop 2h ship the auth refactor
@@ -455,7 +580,7 @@ Agent must end with **`LOOP_DONE`** or **`LOOP_BLOCKED`**.
 
 ---
 
-<!-- Slide 23 -->
+<!-- Slide 29 -->
 
 # `/loop` — verify, or it is honor-system
 
@@ -479,7 +604,7 @@ State lives in SQLite — restart can **resume** the same loop.
 
 ---
 
-<!-- Slide 24 -->
+<!-- Slide 30 -->
 
 # `/loop` — write a goal that can finish
 
@@ -494,7 +619,7 @@ State lives in SQLite — restart can **resume** the same loop.
 
 ---
 
-<!-- Slide 25 -->
+<!-- Slide 31 -->
 
 # `/team` — parallel specialists
 
@@ -516,7 +641,7 @@ Header badge: `team:auth-review · 2 busy · 1 idle`
 
 ---
 
-<!-- Slide 26 -->
+<!-- Slide 32 -->
 
 # `/team` — spawn pattern
 
@@ -539,7 +664,7 @@ team({ action: "status" })
 
 ---
 
-<!-- Slide 27 -->
+<!-- Slide 33 -->
 
 # `/team` — board, merge, cleanup
 
@@ -562,7 +687,7 @@ Prefer **2–3** teammates. Not a crowd.
 
 ---
 
-<!-- Slide 28 -->
+<!-- Slide 34 -->
 
 # Non-streaming LLM calls
 
@@ -584,7 +709,7 @@ Tradeoff: no live typing. Wait, then the whole reply dumps.
 
 ---
 
-<!-- Slide 29 -->
+<!-- Slide 35 -->
 
 # CLI, server, attach
 
@@ -605,7 +730,7 @@ Reuse a warm server so MCP does not cold-boot on every `run`.
 
 ---
 
-<!-- Slide 30 -->
+<!-- Slide 36 -->
 
 # Recipe: unattended feature
 
@@ -619,7 +744,7 @@ Reuse a warm server so MCP does not cold-boot on every `run`.
 
 ---
 
-<!-- Slide 31 -->
+<!-- Slide 37 -->
 
 # When to use what
 
@@ -627,8 +752,11 @@ Reuse a warm server so MCP does not cold-boot on every `run`.
 | --- | --- |
 | Think before editing | **plan** agent |
 | One focused change | **build**, `@` files |
+| Design before any code | **Superpowers** brainstorming |
+| Fix a bug with evidence | **systematic-debugging** |
 | Model keeps calling tools | **Session loop** (automatic) |
-| Hours of work, one goal | **`/loop` + verify** (outer nudge) |
+| Hours of work, one goal | **Ralph Loop** → `/loop` + verify |
+| Watch it work | **HITL**; walk away when you trust it |
 | Research ∥ implement | **`/team`** (2–3 members) |
 | Same prompt every day | Custom **`/command`** |
 | Domain procedure | **Skill** |
@@ -638,12 +766,13 @@ Reuse a warm server so MCP does not cold-boot on every `run`.
 
 ---
 
-<!-- Slide 32 -->
+<!-- Slide 38 -->
 
 # Pitfalls
 
 | Symptom | Fix |
 | --- | --- |
+| Agent jumps to code | Superpowers not loaded — `/new` then “Tell me about your superpowers” |
 | Missing `/loop` `/team` `disable_stream` | You installed **upstream**, not this repo |
 | Agent “stopped” after one reply | Normal — session loop exits when `finish ≠ tool-calls` |
 | Agent never stops calling tools | `agent.steps` cap; doom_loop after 3 identical calls |
@@ -656,27 +785,30 @@ Reuse a warm server so MCP does not cold-boot on every `run`.
 
 ---
 
-<!-- Slide 33 -->
+<!-- Slide 39 -->
 
 # Recap
 
 - **Basics:** `bun dev`, `/connect`, `/init`, `@`, `Tab`, `Ctrl+X`
 - **Control:** `AGENTS.md`, `.mdc` rules, permission globs
 - **Extend:** commands, skills, tools, plugins, MCP
+- **Superpowers:** brainstorm → plan → TDD (skills before acting)
+- **Ralph Loop:** intercept the stop until `LOOP_DONE` (HITL then AFK)
 - **Session loop:** LLM → tools → compact → again until `finish ≠ tool-calls`
-- **Unattended:** `/loop` nudges that same loop + `loop.verify`
+- **Unattended:** `/loop` is Ralph here — nudge + `loop.verify` + a budget
 - **Parallel:** `/team` — lead, 2–3 specialists, worktrees, merge, cleanup
 - **This fork:** `disable_stream`, loop, team, Cursor rules
 
 ---
 
-<!-- Slide 34 -->
+<!-- Slide 40 -->
 
 # Resources (this repo)
 
 | | |
 | --- | --- |
 | Hands-on tutorial | `tutorial/README.md` |
+| Superpowers | `tutorial/superpowers.md` |
 | Config reference | `OPENCODE_CONFIG.md` |
 | Team internals | `packages/opencode/src/team/README.md` |
 | Dev / `bun dev` | `CONTRIBUTING.md` |

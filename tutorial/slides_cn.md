@@ -1,7 +1,7 @@
 ---
 marp: true
 title: 如何使用 OpenCode
-description: 基础、Agent 循环，再到进阶 — /loop、/team、规则、CLI
+description: 基础、Superpowers、Ralph Loop、Agent 循环，再到 /loop、/team
 paginate: true
 lang: zh-CN
 ---
@@ -25,11 +25,12 @@ lang: zh-CN
 1. **基础** — 是什么、第一次会话、TUI
 2. **塑造 Agent** — 配置、规则、权限
 3. **扩展能力** — 命令、skills、tools、plugins、MCP
-4. **Agent 循环** — 一轮做到停
-5. **无人值守** — `/loop` 包在循环外面
-6. **并行** — `/team`
-7. **运维** — 非流式、CLI、serve
-8. **什么时候用什么**
+4. **Superpowers** — 设计 → 计划 → TDD
+5. **Agent 循环** — 一轮做到停
+6. **Ralph Loop / `/loop`** — 无人值守直到完成
+7. **并行** — `/team`
+8. **运维** — 非流式、CLI、serve
+9. **什么时候用什么**
 
 ---
 
@@ -290,6 +291,128 @@ opencode mcp list
 
 <!-- Slide 15 -->
 
+# Superpowers — 方法论插件
+
+不是新的斜杠命令。本仓库的 `opencode.json` 已经在加载它。
+
+| 部件 | 作用 |
+| --- | --- |
+| **Bootstrap**（`using-superpowers`） | 注入到第一条用户消息。只要 skill 可能相关，**先调用再回答**。 |
+| **Skills** | 流程手册：brainstorming、TDD、systematic-debugging、… |
+| **Plugin** | 注册这些 skills，并注入 bootstrap |
+
+- **TDD** — 没有失败测试，不写生产代码
+- **系统性** — 先根因，再修
+- **YAGNI** — 能用的最小设计
+
+Skills 是 **必须走的流程**，不是建议。和 `/loop`、`/team` 独立 — 先 brainstorm，再用它们去执行。
+
+---
+
+<!-- Slide 16 -->
+
+# Superpowers — 怎么加载
+
+```json
+"plugin": ["superpowers@git+https://github.com/obra/superpowers.git"]
+```
+
+启动时：按 git spec 拉取 → 把 bootstrap 注入 **第一条** 用户消息 → 用 `skill` 工具加载手册。
+
+新会话（`/new`）冒烟：
+
+```text
+Tell me about your superpowers
+```
+
+它应能说出这套库，以及规则：**动手前先调 skill**。然后再试：
+
+```text
+Let's add a CLI flag that prints loaded plugins and exits.
+```
+
+期望先走 **brainstorming**（提问、短设计、等你点头）— 还不要写代码。
+
+---
+
+<!-- Slide 17 -->
+
+# Superpowers — 默认功能路径
+
+```text
+brainstorming     → spec（你批准）
+writing-plans     → plan 文件
+每个任务做 TDD    → 红 → 绿 → 重构（+ review）
+收尾分支
+```
+
+| 你说 | 先走哪个 skill |
+| --- | --- |
+| “Let's build X” | **brainstorming** — 设计没 OK 之前不写代码 |
+| “Fix this bug” | **systematic-debugging** |
+| 按计划实现 | **test-driven-development** |
+
+硬门槛：「这太简单了」也要一份短设计。之后如果活很长或要并行，再用 `/loop` 或 `/team`。
+
+---
+
+<!-- Slide 18 -->
+
+# Ralph Loop — 不达目的不罢休
+
+名字来自《辛普森一家》的 **Ralph Wiggum**：屡败屡战，永不放弃。
+
+一种让 AI 编程助手 **自主持续迭代**，直到复杂任务真正完成的工作模式。不是一次性回答。
+
+普通助手想一轮就停，复杂任务经常半途而废。Ralph Loop **拒绝 idle**。
+
+本 fork 的 `/loop` 就是这套模式：完成暗号、拦截退出、直到目标完成（或预算用尽）。
+
+---
+
+<!-- Slide 19 -->
+
+# Ralph Loop — 核心机制
+
+从「一次性回答」到「持续工作」：
+
+1. 下达 **任务** 和 **完成暗号**（经典：`<promise>DONE</promise>`；这里：`LOOP_DONE`）
+2. AI 开始干活：改代码、跑测试、提交
+3. **拦截退出** — 它准备停下时，Stop Hook / tick 把它拦住
+4. **检查暗号**
+   - 没有 → 把原任务再喂回去，接着仓库里的结果继续
+   - 有了 → 循环结束
+5. **进度在文件系统里积累** — 每轮可以是新窗口（或 compaction）；代码、测试日志、git 才是长期记忆
+
+```text
+干活 → 要停了 → 有暗号？  没有 → nudge / 再提示 → 继续干
+                         有   → 完成
+```
+
+---
+
+<!-- Slide 20 -->
+
+# Ralph Loop — HITL、AFK、安全
+
+**价值：** 短时间 **无人值守（AFK）**。设好任务走开，回来验收。
+
+| 模式 | 何时用 |
+| --- | --- |
+| **人在回路（HITL）** | 盯每一步，随时介入。学习和调试首选。 |
+| **无人值守（AFK）** | 提示词和任务边界够清楚，就让它自己跑。 |
+
+**安全（防止无限循环）：**
+
+- **最大迭代次数** — 硬上限（这里：`/loop 50` 或截止时间 `2h`）
+- **人工中断** — `/loop stop`（经典 Ralph：`/cancel-ralph`）
+
+**它不是 TDD / YAGNI。** 那是「如何写出好代码」的开发实践；Ralph 是「如何让 AI 持续干到完」的自动化策略。两者可以叠：每轮走红 → 绿 → 重构；提示词里写明 YAGNI — 只写当前任务要的最少代码。
+
+---
+
+<!-- Slide 21 -->
+
 # Agent 循环
 
 OpenCode 不是「一次提问对应一次 LLM 调用」。
@@ -307,7 +430,7 @@ OpenCode 不是「一次提问对应一次 LLM 调用」。
 
 ---
 
-<!-- Slide 16 -->
+<!-- Slide 22 -->
 
 # 一张图
 
@@ -337,7 +460,7 @@ OpenCode 不是「一次提问对应一次 LLM 调用」。
 
 ---
 
-<!-- Slide 17 -->
+<!-- Slide 23 -->
 
 # 一步（一次 LLM 回合）
 
@@ -355,7 +478,7 @@ OpenCode 不是「一次提问对应一次 LLM 调用」。
 
 ---
 
-<!-- Slide 18 -->
+<!-- Slide 24 -->
 
 # 为什么它会继续转
 
@@ -374,7 +497,7 @@ OpenCode 不是「一次提问对应一次 LLM 调用」。
 
 ---
 
-<!-- Slide 19 -->
+<!-- Slide 25 -->
 
 # 循环中的 Compaction
 
@@ -395,7 +518,7 @@ tokens 太高
 
 ---
 
-<!-- Slide 20 -->
+<!-- Slide 26 -->
 
 # Processor 内部
 
@@ -412,7 +535,7 @@ tokens 太高
 
 ---
 
-<!-- Slide 21 -->
+<!-- Slide 27 -->
 
 # `/loop` 怎么用上这一套
 
@@ -435,11 +558,13 @@ SessionLoop.tick(session)
 
 ---
 
-<!-- Slide 22 -->
+<!-- Slide 28 -->
 
 # `/loop` — 长目标
 
-跨 **compaction** 继续干活。你不用盯着喊 “continue”。
+本 fork 的 **Ralph Loop**。跨 **compaction** 继续干活。你不用盯着喊 “continue”。
+
+这里的完成暗号是 **`LOOP_DONE`**（需要你出面则 **`LOOP_BLOCKED`**）。
 
 ```text
 /loop 2h ship the auth refactor
@@ -458,7 +583,7 @@ Agent 必须以 **`LOOP_DONE`** 或 **`LOOP_BLOCKED`** 结束。
 
 ---
 
-<!-- Slide 23 -->
+<!-- Slide 29 -->
 
 # `/loop` — 要 verify，否则靠自觉
 
@@ -482,7 +607,7 @@ Agent 必须以 **`LOOP_DONE`** 或 **`LOOP_BLOCKED`** 结束。
 
 ---
 
-<!-- Slide 24 -->
+<!-- Slide 30 -->
 
 # `/loop` — 写出能完成的目标
 
@@ -497,7 +622,7 @@ Agent 必须以 **`LOOP_DONE`** 或 **`LOOP_BLOCKED`** 结束。
 
 ---
 
-<!-- Slide 25 -->
+<!-- Slide 31 -->
 
 # `/team` — 并行专家
 
@@ -519,7 +644,7 @@ Lead：建队 → 拆任务 → 拉起 2–3 个专家 → 协调 → merge → 
 
 ---
 
-<!-- Slide 26 -->
+<!-- Slide 32 -->
 
 # `/team` — 拉起方式
 
@@ -542,7 +667,7 @@ team({ action: "status" })
 
 ---
 
-<!-- Slide 27 -->
+<!-- Slide 33 -->
 
 # `/team` — 看板、merge、cleanup
 
@@ -565,7 +690,7 @@ team({ action: "cleanup" })
 
 ---
 
-<!-- Slide 28 -->
+<!-- Slide 34 -->
 
 # 非流式 LLM 调用
 
@@ -587,7 +712,7 @@ team({ action: "cleanup" })
 
 ---
 
-<!-- Slide 29 -->
+<!-- Slide 35 -->
 
 # CLI、服务、attach
 
@@ -608,7 +733,7 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 ---
 
-<!-- Slide 30 -->
+<!-- Slide 36 -->
 
 # 配方：无人值守做一个功能
 
@@ -622,7 +747,7 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 ---
 
-<!-- Slide 31 -->
+<!-- Slide 37 -->
 
 # 什么时候用什么
 
@@ -630,8 +755,11 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 | --- | --- |
 | 先想再改 | **plan** Agent |
 | 一次聚焦的改动 | **build**，`@` 文件 |
+| 写代码前先设计 | **Superpowers** brainstorming |
+| 带着证据修 bug | **systematic-debugging** |
 | 模型不停调工具 | **会话循环**（自动） |
-| 几小时、一个目标 | **`/loop` + verify**（外层 nudge） |
+| 几小时、一个目标 | **Ralph Loop** → `/loop` + verify |
+| 盯着它干 | **HITL**；信得过了再 AFK |
 | 调研 ∥ 实现 | **`/team`**（2–3 人） |
 | 每天同一句提示 | 自定义 **`/command`** |
 | 领域流程 | **Skill** |
@@ -641,12 +769,13 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 ---
 
-<!-- Slide 32 -->
+<!-- Slide 38 -->
 
 # 踩坑
 
 | 现象 | 处理 |
 | --- | --- |
+| Agent 直接开写代码 | Superpowers 没加载 — `/new` 后问 “Tell me about your superpowers” |
 | 没有 `/loop` `/team` `disable_stream` | 装的是 **上游**，不是这个仓库 |
 | Agent 回一句就「停了」 | 正常 — `finish ≠ tool-calls` 时会话循环退出 |
 | Agent 不停调工具 | `agent.steps` 上限；相同调用 3 次触发 doom_loop |
@@ -659,27 +788,30 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 ---
 
-<!-- Slide 33 -->
+<!-- Slide 39 -->
 
 # 回顾
 
 - **基础：** `bun dev`、`/connect`、`/init`、`@`、`Tab`、`Ctrl+X`
 - **控制：** `AGENTS.md`、`.mdc` 规则、权限 glob
 - **扩展：** commands、skills、tools、plugins、MCP
+- **Superpowers：** brainstorm → plan → TDD（动手前先调 skill）
+- **Ralph Loop：** 拦截退出直到 `LOOP_DONE`（先 HITL，再 AFK）
 - **会话循环：** LLM → 工具 → compact → 再来，直到 `finish ≠ tool-calls`
-- **无人值守：** `/loop` 对同一循环做 nudge + `loop.verify`
+- **无人值守：** 这里的 `/loop` 就是 Ralph — nudge + `loop.verify` + 预算
 - **并行：** `/team` — lead、2–3 专家、worktree、merge、cleanup
 - **本 fork：** `disable_stream`、loop、team、Cursor 规则
 
 ---
 
-<!-- Slide 34 -->
+<!-- Slide 40 -->
 
 # 资料（本仓库）
 
 | | |
 | --- | --- |
 | 动手教程 | `tutorial/README.md` |
+| Superpowers | `tutorial/superpowers.md` |
 | 配置参考 | `OPENCODE_CONFIG.md` |
 | Team 内部 | `packages/opencode/src/team/README.md` |
 | 开发 / `bun dev` | `CONTRIBUTING.md` |
