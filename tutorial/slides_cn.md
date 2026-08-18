@@ -3,6 +3,7 @@ marp: true
 title: 如何使用 OpenCode
 description: 基础、Agent 循环，再到进阶 — /loop、/team、规则、CLI
 paginate: true
+lang: zh-CN
 ---
 
 <!-- Slide 1 -->
