@@ -12,7 +12,7 @@ lang: zh-CN
 
 本 fork — TUI、`/loop`、`/team` 与项目级控制
 
-*先讲基础。进阶才是这场分享的重点。*
+*先讲基础。进阶才是本次分享的重点。*
 
 英文版：`tutorial/slides.md`
 
@@ -23,11 +23,11 @@ lang: zh-CN
 # 目录
 
 1. **基础** — 是什么、第一次会话、TUI
-2. **塑造 Agent** — 配置、规则、权限
+2. **定制 Agent** — 配置、规则、权限
 3. **扩展能力** — 命令、skills、tools、plugins、MCP
 4. **Superpowers** — 设计 → 计划 → TDD
-5. **Agent 循环** — 一轮做到停
-6. **Ralph Loop / `/loop`** — 无人值守直到完成
+5. **Agent 循环** — 一轮一轮直到停下
+6. **Ralph Loop / `/loop`** — 无人值守，直到完成
 7. **并行** — `/team`
 8. **运维** — 非流式、CLI、serve
 9. **什么时候用什么**
@@ -38,15 +38,15 @@ lang: zh-CN
 
 # OpenCode 是什么
 
-开源 **AI 编程 Agent**。不绑定厂商。带 LSP。
+开源 **AI 编程 Agent**。不绑定模型供应商。内置 LSP 支持。
 
 | 界面 | 命令 | 用途 |
 | --- | --- | --- |
 | TUI | `opencode` / `bun dev` | 日常工作 |
 | 一次性 | `opencode run "…"` | 脚本、CI |
-| 服务 | `opencode serve` | 无头 / 远程 TUI |
+| 服务 | `opencode serve` | 无界面 / 远程 TUI |
 
-只有一套会话引擎。TUI 只是主客户端。
+底层只有一套会话引擎，TUI 只是主客户端。
 
 ---
 
@@ -54,7 +54,7 @@ lang: zh-CN
 
 # 跑 *这个* 仓库
 
-公开的 `npm i -g opencode-ai` 是 **上游**。本 fork 不是那个包。
+公开的 `npm i -g opencode-ai` 是**上游**包。本 fork 并非那个包。
 
 ```bash
 bun install
@@ -62,7 +62,7 @@ bun dev /path/to/project     # TUI
 ./build.sh --single          # 二进制 → packages/opencode/dist/
 ```
 
-需要 **Bun 1.3+**、现代终端、LLM 密钥、git（`/undo` 依赖它）。
+需要 **Bun 1.3+**、现代终端、LLM API 密钥、git（`/undo` 依赖它）。
 
 ---
 
@@ -76,7 +76,7 @@ bun dev models
 cd ~/code/my-app && bun dev ~/code/my-app
 ```
 
-然后在输入框：
+然后在输入框里：
 
 ```text
 /models          → 选择 provider/model
@@ -84,7 +84,7 @@ cd ~/code/my-app && bun dev ~/code/my-app
 ```
 
 ```text
-用 10 行画一张这个仓库的地图。
+Map agents/, robot/, and how the LLM planner calls tools.
 ```
 
 ---
@@ -96,7 +96,7 @@ cd ~/code/my-app && bun dev ~/code/my-app
 | 想做 | 怎么做 |
 | --- | --- |
 | 附上文件 | `@path` 模糊搜索 |
-| 跑一条 shell | `!git status` |
+| 执行 shell 命令 | `!git status` |
 | 切换 Agent | `Tab` / `Shift+Tab` |
 | 停止生成 | `Escape` |
 | 命令面板 | `Ctrl+P` |
@@ -113,14 +113,14 @@ cd ~/code/my-app && bun dev ~/code/my-app
 **主 Agent**（你直接对话的）：
 
 - **build** — 默认，工具全开
-- **plan** — 分析；改文件和 bash 先 *询问*
+- **plan** — 分析；改文件和执行 bash 前先 *询问*
 
-**子 Agent**（`@name`，或由主 Agent 拉起）：
+**子 Agent**（`@name`，或由主 Agent 派生）：
 
 - **explore** — 快速、只读搜索
 - **general** — 多步任务，可以改代码
 
-典型流程：**plan → 达成一致 → Tab 切到 build → 小改动 → 错了就 `/undo`**。
+典型流程：**plan → 达成一致 → Tab 切到 build → 小改动 → 出错就 `/undo`**。
 
 ---
 
@@ -128,12 +128,12 @@ cd ~/code/my-app && bun dev ~/code/my-app
 
 # 进阶：配置是分层的
 
-优先用 **项目本地** 文件。放进 git 和团队共享。
+优先用**项目本地**文件。放入 git 与团队共享。
 
 ```text
 opencode.json          模型、权限、loop、experimental
 tui.json               主题、快捷键   ← 不在 opencode.json 里
-AGENTS.md              长期有效的说明
+AGENTS.md              长期说明
 .cursor/rules/*.mdc    兼容 Cursor 的规则
 .opencode/             commands、agents、skills、plugins、tools
 ```
@@ -145,25 +145,26 @@ AGENTS.md              长期有效的说明
 
 <!-- Slide 9 -->
 
-# 进阶：把仓库教给它
+# 进阶：让它熟悉仓库
 
-**`AGENTS.md`** — 目录结构、测试命令、风格、不要碰什么。
+**`AGENTS.md`** — 目录结构、测试命令、风格、哪些文件不要动。
 
 **Cursor `.mdc`** — 自动发现，不必在配置里逐条列出。
 
 ```markdown
 ---
-description: TypeScript conventions
-globs: src/**/*.ts
+description: Python agent conventions
+globs: agents/**/*.py, robot/**/*.py
 alwaysApply: false
 ---
-- Prefer const. Use Bun APIs.
+- Type hints on public functions. Pytest for behavior.
+- Planner owns the LLM loop; robot/ is motion only.
 ```
 
 | Frontmatter | 效果 |
 | --- | --- |
 | `alwaysApply: true` | 每次会话都注入 |
-| `globs` | 读到匹配文件时附上 |
+| `globs` | 读取匹配文件时附加 |
 | 只有 `description` | 任务相关时由 Agent 自行加载 |
 
 ---
@@ -172,7 +173,7 @@ alwaysApply: false
 
 # 进阶：权限
 
-`"allow"` · `"ask"` · `"deny"` — 按工具，支持 glob。
+`"allow"` · `"ask"` · `"deny"` — 按工具区分，支持 glob。
 
 ```json
 {
@@ -182,14 +183,14 @@ alwaysApply: false
     "bash": {
       "*": "ask",
       "git *": "allow",
-      "bun test*": "allow",
+      "pytest*": "allow",
       "rm *": "deny"
     }
   }
 }
 ```
 
-plan Agent 对 edit/bash 本来就会 *询问*。无人值守 `/loop` 时再收紧。
+plan Agent 对 edit/bash 本来就会 *询问*。无人值守 `/loop` 时再进一步收紧。
 
 ---
 
@@ -201,15 +202,15 @@ plan Agent 对 edit/bash 本来就会 *询问*。无人值守 `/loop` 时再收�
 
 ```markdown
 ---
-description: Run tests and fix failures
+description: 运行测试并修复失败
 agent: build
 ---
-Run the suite. Fix the smallest set of files that goes green.
+运行 pytest。修复最小范围的文件，让测试变绿。
 $ARGUMENTS
 ```
 
 ```text
-/test the auth package
+/test agents/planner
 ```
 
 `$ARGUMENTS`、`$1`、`$2` · 反引号注入 shell 输出 · 可选 `model` / `subtask`。
@@ -229,13 +230,13 @@ $ARGUMENTS
 ```markdown
 ---
 name: git-release
-description: Changelog, tag, sanity checks. Do not push tags unless asked.
+description: Changelog、tag、健全性检查。除非要求，否则不要推送 tag。
 ---
 ```
 
 还有：`.claude/skills/`、`.agents/skills/`、`~/.config/opencode/skills/`。
 
-描述写具体，模型才能选对 skill。
+描述写得具体，模型才能选对 skill。
 
 ---
 
@@ -243,14 +244,14 @@ description: Changelog, tag, sanity checks. Do not push tags unless asked.
 
 # 进阶：自定义 tools 与 plugins
 
-**Tools** — 给 LLM 调用的函数。
+**Tools** — 供 LLM 调用的函数。
 
 ```ts
 // .opencode/tools/database.ts  → 工具名 "database"
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Query the project database",
+  description: "查询机器人遥测数据（位姿、电量、上一次工具调用）",
   args: { query: tool.schema.string() },
   async execute(args) { /* ... */ },
 })
@@ -267,7 +268,7 @@ export default tool({
 
 # 进阶：MCP
 
-外部工具（浏览器、工单、文档）。它们 **消耗上下文**。
+外部工具（浏览器、工单、文档）。它们会**占用上下文**。
 
 ```json
 {
@@ -285,7 +286,7 @@ opencode mcp add
 opencode mcp list
 ```
 
-少开几个。GitHub 一类 MCP 很容易把窗口撑爆。
+少开几个。GitHub 一类 MCP 很容易把上下文窗口撑爆。
 
 ---
 
@@ -302,10 +303,10 @@ opencode mcp list
 | **Plugin** | 注册这些 skills，并注入 bootstrap |
 
 - **TDD** — 没有失败测试，不写生产代码
-- **系统性** — 先根因，再修
-- **YAGNI** — 能用的最小设计
+- **系统性** — 先找根因，再修
+- **YAGNI** — 能跑起来的最小设计
 
-Skills 是 **必须走的流程**，不是建议。和 `/loop`、`/team` 独立 — 先 brainstorm，再用它们去执行。
+Skills 是**必须走的流程**，不是建议。和 `/loop`、`/team` 相互独立 — 先 brainstorm，再用它们去执行。
 
 ---
 
@@ -317,21 +318,21 @@ Skills 是 **必须走的流程**，不是建议。和 `/loop`、`/team` 独立 
 "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"]
 ```
 
-启动时：按 git spec 拉取 → 把 bootstrap 注入 **第一条** 用户消息 → 用 `skill` 工具加载手册。
+启动时：按 git spec 拉取 → 把 bootstrap 注入**第一条**用户消息 → 用 `skill` 工具加载手册。
 
-新会话（`/new`）冒烟：
+新会话（`/new`）冒烟测试：
 
 ```text
 Tell me about your superpowers
 ```
 
-它应能说出这套库，以及规则：**动手前先调 skill**。然后再试：
+它应能说出这个库的名字，以及规则：**动手前先调 skill**。然后再试：
 
 ```text
-Let's add a CLI flag that prints loaded plugins and exits.
+Let's add max_steps to the Python LLM planner so tool calls cannot loop forever.
 ```
 
-期望先走 **brainstorming**（提问、短设计、等你点头）— 还不要写代码。
+期望先走 **brainstorming**（提问、短设计、等你点头）— 这时还不写代码。
 
 ---
 
@@ -348,11 +349,11 @@ writing-plans     → plan 文件
 
 | 你说 | 先走哪个 skill |
 | --- | --- |
-| “Let's build X” | **brainstorming** — 设计没 OK 之前不写代码 |
-| “Fix this bug” | **systematic-debugging** |
+| “Let's add max_steps to the planner” | **brainstorming** — 设计没 OK 之前不写代码 |
+| “Planner never stops calling tools” | **systematic-debugging** |
 | 按计划实现 | **test-driven-development** |
 
-硬门槛：「这太简单了」也要一份短设计。之后如果活很长或要并行，再用 `/loop` 或 `/team`。
+硬门槛：「这太简单了」也要一份短设计。之后如果工作量大或要并行，再用 `/loop` 或 `/team`。
 
 ---
 
@@ -362,9 +363,9 @@ writing-plans     → plan 文件
 
 名字来自《辛普森一家》的 **Ralph Wiggum**：屡败屡战，永不放弃。
 
-一种让 AI 编程助手 **自主持续迭代**，直到复杂任务真正完成的工作模式。不是一次性回答。
+一种让 AI 编程助手**自主持续迭代**、直到复杂任务真正完成的工作模式。不是一次性回答。
 
-普通助手想一轮就停，复杂任务经常半途而废。Ralph Loop **拒绝 idle**。
+普通助手一轮就停下，复杂任务经常半途而废。Ralph Loop **拒绝闲置**。
 
 本 fork 的 `/loop` 就是这套模式：完成暗号、拦截退出、直到目标完成（或预算用尽）。
 
@@ -376,11 +377,11 @@ writing-plans     → plan 文件
 
 从「一次性回答」到「持续工作」：
 
-1. 下达 **任务** 和 **完成暗号**（经典：`<promise>DONE</promise>`；这里：`LOOP_DONE`）
+1. 下达**任务**和**完成暗号**（经典：`<promise>DONE</promise>`；这里：`LOOP_DONE`）
 2. AI 开始干活：改代码、跑测试、提交
 3. **拦截退出** — 它准备停下时，Stop Hook / tick 把它拦住
 4. **检查暗号**
-   - 没有 → 把原任务再喂回去，接着仓库里的结果继续
+   - 没有 → 把原任务再喂回去，从仓库现有结果继续
    - 有了 → 循环结束
 5. **进度在文件系统里积累** — 每轮可以是新窗口（或 compaction）；代码、测试日志、git 才是长期记忆
 
@@ -395,11 +396,11 @@ writing-plans     → plan 文件
 
 # Ralph Loop — HITL、AFK、安全
 
-**价值：** 短时间 **无人值守（AFK）**。设好任务走开，回来验收。
+**价值：** 可以短时间**无人值守（AFK）**。设好任务走开，回来验收。
 
 | 模式 | 何时用 |
 | --- | --- |
-| **人在回路（HITL）** | 盯每一步，随时介入。学习和调试首选。 |
+| **人在回路（HITL）** | 盯着每一步，随时介入。学习和调试首选。 |
 | **无人值守（AFK）** | 提示词和任务边界够清楚，就让它自己跑。 |
 
 **安全（防止无限循环）：**
@@ -407,7 +408,7 @@ writing-plans     → plan 文件
 - **最大迭代次数** — 硬上限（这里：`/loop 50` 或截止时间 `2h`）
 - **人工中断** — `/loop stop`（经典 Ralph：`/cancel-ralph`）
 
-**它不是 TDD / YAGNI。** 那是「如何写出好代码」的开发实践；Ralph 是「如何让 AI 持续干到完」的自动化策略。两者可以叠：每轮走红 → 绿 → 重构；提示词里写明 YAGNI — 只写当前任务要的最少代码。
+**它不是 TDD / YAGNI。** 那是「如何写出好代码」的开发实践；Ralph 是「如何让 AI 持续干到完」的自动化策略。两者可以叠加：每轮走红 → 绿 → 重构；提示词里写明 YAGNI — 只写当前任务要的最少代码。
 
 ---
 
@@ -417,16 +418,16 @@ writing-plans     → plan 文件
 
 OpenCode 不是「一次提问对应一次 LLM 调用」。
 
-一个 **session** 会在 `SessionPrompt.loop` 里保持 **busy**，直到模型 **不再调工具**（或你按 Escape / 硬停止）。
+一个 **session** 会在 `SessionPrompt.loop` 里保持 **busy**，直到模型**不再调工具**（或你按 Escape / 硬停止）。
 
 两种不同的「循环」：
 
 | 循环 | 代码 | 职责 |
 | --- | --- | --- |
-| **会话循环** | `prompt.ts` `loop()` | 继续：LLM → 工具 → compact → 再来 |
+| **会话循环** | `prompt.ts` `loop()` | 继续转：LLM → 工具 → compact → 再来 |
 | **自主 `/loop`** | `loop.ts` `tick()` | 停下后注入 nudge，让它继续朝目标干活 |
 
-本节剩下的是 **会话循环**。`/loop` 叠在它上面。
+本节剩下的是**会话循环**。`/loop` 叠在它上面。
 
 ---
 
@@ -467,14 +468,14 @@ OpenCode 不是「一次提问对应一次 LLM 调用」。
 不是 subtask / compaction 的每一轮：
 
 1. 加载消息（跳过已经 compact 过的）
-2. 解析 **agent**、**tools**、**permissions**、system prompt  
+2. 解析 **agent**、**tools**、**permissions**、system prompt
    （`AGENTS.md`、skills、team prompt、environment）
 3. 创建一条 **assistant** 消息
 4. `SessionProcessor.process` → `LLM.stream()`（`streamText` 或 `generateText`）
 5. 流式事件变成 parts：reasoning、text、tool calls
 6. 工具执行（edit、bash、read、…）。这一步会 snapshot git patch。
 
-然后 **会话循环看 `finish`**，决定：再跑一轮、compact，还是停。
+然后**会话循环看 `finish`**，决定：再跑一轮、compact，还是停。
 
 ---
 
@@ -501,7 +502,7 @@ OpenCode 不是「一次提问对应一次 LLM 调用」。
 
 # 循环中的 Compaction
 
-上下文有限。溢出 **不会** 杀掉会话。
+上下文有限。溢出**不会**杀掉会话。
 
 ```text
 tokens 太高
@@ -510,11 +511,11 @@ tokens 太高
     → 带着摘要继续循环
 ```
 
-- 在 assistant 结束之后 **以及** processor 一步之后都会检查
+- 在 assistant 结束之后**以及** processor 一步之后都会检查
 - `/compact` 是手动版（`auto: false`）
 - 会话循环退出后，旧的工具输出可能被 **prune**
 
-这就是 `/loop` 能跑几小时的原因：compaction 是 **循环的一轮**，不是终点。
+这就是 `/loop` 能跑几小时的原因：compaction 是**循环的一轮**，不是终点。
 
 ---
 
@@ -526,7 +527,7 @@ tokens 太高
 
 - **Retry** 瞬时 API 错误（状态 = retry，退避）
 - **Doom loop** — 同一工具 + 同一参数 **3 次** → 权限 `doom_loop`
-- **权限 / 提问被拒绝** → 通常 `stop` 会话循环  
+- **权限 / 提问被拒绝** → 通常 `stop` 会话循环
   （`experimental.continue_loop_on_deny` 可让它继续）
 - **Escape** 中止流；未完成的工具标成 error
 - 工具结果写回 parts，**下一次** LLM 调用能看见
@@ -539,7 +540,7 @@ tokens 太高
 
 # `/loop` 怎么用上这一套
 
-当会话循环本来要 **退出**（assistant 的 `finish` 是真正的 stop）：
+当会话循环本来要**退出**（assistant 的 `finish` 是真正的 stop）：
 
 ```text
 SessionLoop.tick(session)
@@ -552,9 +553,9 @@ SessionLoop.tick(session)
 | 预算用尽 | 结束（`deadline` / `max` 轮数） |
 | 还没完 | 注入 **nudge**（目标、轮次、verify 命令）作为合成用户消息 |
 
-那条合成消息就是又一轮用户输入 — **同一个** 会话循环再启动。
+那条合成消息就是又一轮用户输入 — **同一个**会话循环再启动。
 
-`/loop` 并不替换 Agent 循环。它 **拒绝 idle**，直到目标完成。
+`/loop` 并不替换 Agent 循环。它**拒绝 idle**，直到目标完成。
 
 ---
 
@@ -567,9 +568,9 @@ SessionLoop.tick(session)
 这里的完成暗号是 **`LOOP_DONE`**（需要你出面则 **`LOOP_BLOCKED`**）。
 
 ```text
-/loop 2h ship the auth refactor
-/loop 50 @docs/roadmap.md
-/loop 2h 30 finish remaining todos
+/loop 2h make pytest tests/test_planner.py green
+/loop 50 @docs/agent-loop.md
+/loop 2h 30 cap planner tool calls with max_steps
 /loop stop
 ```
 
@@ -585,12 +586,12 @@ Agent 必须以 **`LOOP_DONE`** 或 **`LOOP_BLOCKED`** 结束。
 
 <!-- Slide 29 -->
 
-# `/loop` — 要 verify，否则靠自觉
+# `/loop` — 要 verify，否则只靠自觉
 
 ```json
 {
   "loop": {
-    "verify": ["bun typecheck", "bun test"]
+    "verify": ["pytest -q"]
   }
 }
 ```
@@ -603,7 +604,7 @@ Agent 必须以 **`LOOP_DONE`** 或 **`LOOP_BLOCKED`** 结束。
 
 `LOOP_BLOCKED` 一定停（密钥、不可逆选择、缺依赖）。
 
-状态存在 SQLite — 重启可以 **接着同一个 loop**。
+状态存在 SQLite — 重启可以**接着同一个 loop**。
 
 ---
 
@@ -613,7 +614,7 @@ Agent 必须以 **`LOOP_DONE`** 或 **`LOOP_BLOCKED`** 结束。
 
 **差：** “改进这个代码库”
 
-**好：** “让 `packages/api` 的 `bun test` 全绿。不要改公开类型。”
+**好：** “让 `pytest tests/test_planner.py` 全绿。不要改公开的 Agent API。”
 
 - 完成条件要具体
 - 永远配上 `loop.verify`
@@ -635,29 +636,29 @@ OPENCODE_EXPERIMENTAL_TEAM_MODE=1 bun dev /path/to/project
 ```
 
 ```text
-/team review auth for XSS and add tests
+/team review the LLM planner for unbounded tool loops and add pytest
 ```
 
-Lead：建队 → 拆任务 → 拉起 2–3 个专家 → 协调 → merge → cleanup。
+Lead：建队 → 拆任务 → 派生 2–3 个专家 → 协调 → merge → cleanup。
 
-标题栏徽章：`team:auth-review · 2 busy · 1 idle`
+标题栏徽章：`team:planner · 2 busy · 1 idle`
 
 ---
 
 <!-- Slide 32 -->
 
-# `/team` — 拉起方式
+# `/team` — 派生方式
 
 ```js
-team({ action: "create", name: "auth-review", delegate: true })
+team({ action: "create", name: "planner", delegate: true })
 
 team({ action: "spawn", member: "scout", agent: "explore",
-       prompt: "Map auth/XSS surfaces", worktree: false })
+       prompt: "Map the LLM tool loop in agents/planner.py; find missing max_steps", worktree: false })
 
 team({ action: "spawn", member: "builder", agent: "build",
-       prompt: "Add tests for scout findings", plan_approval: true })
+       prompt: "Add pytest for unbounded tool calls; cap with max_steps", plan_approval: true })
 
-team({ action: "tasks", task_action: "add", title: "map auth routes" })
+team({ action: "tasks", task_action: "add", title: "map planner tool loop" })
 team({ action: "status" })
 ```
 
@@ -678,13 +679,13 @@ add → pending（或被 deps 挡住）
 ```
 
 ```js
-team({ action: "message", to: "builder", text: "Login form first" })
-team({ action: "message", to: "*", text: "Do not touch src/legacy" })
+team({ action: "message", to: "builder", text: "Planner loop first, then robot/control" })
+team({ action: "message", to: "*", text: "Do not touch robot/firmware" })
 team({ action: "merge", member: "builder" })
 team({ action: "cleanup" })
 ```
 
-空闲成员 **以及 lead** 收到消息会自动唤醒。嵌套的 `task` 子 Agent **不能** 用 `team`。
+空闲成员**以及 lead** 收到消息会自动唤醒。嵌套的 `task` 子 Agent **不能**用 `team`。
 
 优先 **2–3** 个队友。不要一窝蜂。
 
@@ -696,7 +697,7 @@ team({ action: "cleanup" })
 
 默认：`streamText()` — token 边到边显示。
 
-有些代理 / 本地模型会 **弄坏 SSE**（卡住、工具 JSON 被截断）。
+有些代理 / 本地模型会**弄坏 SSE**（卡住、工具 JSON 被截断）。
 
 ```json
 {
@@ -706,7 +707,7 @@ team({ action: "cleanup" })
 }
 ```
 
-改用 `generateText()`，再 **回放** 一条假流，UI 不用改。
+改用 `generateText()`，再**回放**一条假流，UI 不用改。
 
 代价：没有打字机效果。等完整回复到了，一次性倒出来。
 
@@ -717,10 +718,10 @@ team({ action: "cleanup" })
 # CLI、服务、attach
 
 ```bash
-opencode run "Explain SessionProcessor tool calls"
-opencode run -m anthropic/claude-sonnet-4-5 -f src/index.ts "Review"
-opencode run --format json "List public SDK exports"
-opencode run -c "Finish the remaining todos"
+opencode run "Explain how agents/planner.py stops tool-calling"
+opencode run -m anthropic/claude-sonnet-4-5 -f agents/planner.py "Review the LLM loop"
+opencode run --format json "List public methods on Agent"
+opencode run -c "Finish the remaining planner tests"
 ```
 
 ```bash
@@ -739,9 +740,9 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 1. `/init` + 收紧 `AGENTS.md`
 2. 权限：允许 edit 和测试命令；拒绝 `rm` / `git push`
-3. `loop.verify`：typecheck + tests
+3. `loop.verify`：`pytest -q`
 4. **plan** Agent：先把设计谈妥
-5. `/loop 2h 40 land X without changing public API`
+5. `/loop 2h 40 cap planner tool calls; do not change the public Agent API`
 6. 需要调研和实现并行 → 改用 **`/team`**（打开 flag）
 7. 自己看 diff；`/undo` 是基于 git 的
 
@@ -754,7 +755,7 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 | 场景 | 用什么 |
 | --- | --- |
 | 先想再改 | **plan** Agent |
-| 一次聚焦的改动 | **build**，`@` 文件 |
+| 一次聚焦的改动 | **build**，`@agents/planner.py` |
 | 写代码前先设计 | **Superpowers** brainstorming |
 | 带着证据修 bug | **systematic-debugging** |
 | 模型不停调工具 | **会话循环**（自动） |

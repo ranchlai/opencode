@@ -11,18 +11,18 @@
 </style></head><body><div class="bespoke-marp-osc"><button data-bespoke-marp-osc="prev" tabindex="-1" title="Previous slide">Previous slide</button><span data-bespoke-marp-osc="page"></span><button data-bespoke-marp-osc="next" tabindex="-1" title="Next slide">Next slide</button><button data-bespoke-marp-osc="fullscreen" tabindex="-1" title="Toggle fullscreen (f)">Toggle fullscreen</button><button data-bespoke-marp-osc="overview" tabindex="-1" title="Toggle overview view (o)">Toggle overview view</button><button data-bespoke-marp-osc="presenter" tabindex="-1" title="Open presenter view (p)">Open presenter view</button></div><div id=":$p"><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="1" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="1" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8-opencode">如何使用 OpenCode</h1>
 <p>本 fork — TUI、<code>/loop</code>、<code>/team</code> 与项目级控制</p>
-<p><em>先讲基础。进阶才是这场分享的重点。</em></p>
+<p><em>先讲基础。进阶才是本次分享的重点。</em></p>
 <p>英文版：<code>tutorial/slides.md</code></p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="2" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="2" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E7%9B%AE%E5%BD%95">目录</h1>
 <ol>
 <li><strong>基础</strong> — 是什么、第一次会话、TUI</li>
-<li><strong>塑造 Agent</strong> — 配置、规则、权限</li>
+<li><strong>定制 Agent</strong> — 配置、规则、权限</li>
 <li><strong>扩展能力</strong> — 命令、skills、tools、plugins、MCP</li>
 <li><strong>Superpowers</strong> — 设计 → 计划 → TDD</li>
-<li><strong>Agent 循环</strong> — 一轮做到停</li>
-<li><strong>Ralph Loop / <code>/loop</code></strong> — 无人值守直到完成</li>
+<li><strong>Agent 循环</strong> — 一轮一轮直到停下</li>
+<li><strong>Ralph Loop / <code>/loop</code></strong> — 无人值守，直到完成</li>
 <li><strong>并行</strong> — <code>/team</code></li>
 <li><strong>运维</strong> — 非流式、CLI、serve</li>
 <li><strong>什么时候用什么</strong></li>
@@ -30,7 +30,7 @@
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="3" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="3" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="opencode-%E6%98%AF%E4%BB%80%E4%B9%88">OpenCode 是什么</h1>
-<p>开源 <strong>AI 编程 Agent</strong>。不绑定厂商。带 LSP。</p>
+<p>开源 <strong>AI 编程 Agent</strong>。不绑定模型供应商。内置 LSP 支持。</p>
 <table>
 <thead>
 <tr>
@@ -53,20 +53,20 @@
 <tr>
 <td>服务</td>
 <td><code>opencode serve</code></td>
-<td>无头 / 远程 TUI</td>
+<td>无界面 / 远程 TUI</td>
 </tr>
 </tbody>
 </table>
-<p>只有一套会话引擎。TUI 只是主客户端。</p>
+<p>底层只有一套会话引擎，TUI 只是主客户端。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="4" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="4" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E8%B7%91-%E8%BF%99%E4%B8%AA-%E4%BB%93%E5%BA%93">跑 <em>这个</em> 仓库</h1>
-<p>公开的 <code>npm i -g opencode-ai</code> 是 <strong>上游</strong>。本 fork 不是那个包。</p>
+<p>公开的 <code>npm i -g opencode-ai</code> 是<strong>上游</strong>包。本 fork 并非那个包。</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">bun install
 bun dev /path/to/project     <span class="hljs-comment"># TUI</span>
 ./build.sh --single          <span class="hljs-comment"># 二进制 → packages/opencode/dist/</span>
 </code></pre>
-<p>需要 <strong>Bun 1.3+</strong>、现代终端、LLM 密钥、git（<code>/undo</code> 依赖它）。</p>
+<p>需要 <strong>Bun 1.3+</strong>、现代终端、LLM API 密钥、git（<code>/undo</code> 依赖它）。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="5" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="5" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E7%AC%AC%E4%B8%80%E6%AC%A1%E4%BC%9A%E8%AF%9D">第一次会话</h1>
@@ -74,11 +74,11 @@ bun dev /path/to/project     <span class="hljs-comment"># TUI</span>
 bun dev models
 <span class="hljs-built_in">cd</span> ~/code/my-app &amp;&amp; bun dev ~/code/my-app
 </code></pre>
-<p>然后在输入框：</p>
+<p>然后在输入框里：</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">/models          → 选择 provider/model
 /init            → 生成 AGENTS.md，然后提交
 </code></pre>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">用 10 行画一张这个仓库的地图。
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">Map agents/, robot/, and how the LLM planner calls tools.
 </code></pre>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="6" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="6" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
@@ -96,7 +96,7 @@ bun dev models
 <td><code>@path</code> 模糊搜索</td>
 </tr>
 <tr>
-<td>跑一条 shell</td>
+<td>执行 shell 命令</td>
 <td><code>!git status</code></td>
 </tr>
 <tr>
@@ -124,21 +124,21 @@ bun dev models
 <p><strong>主 Agent</strong>（你直接对话的）：</p>
 <ul>
 <li><strong>build</strong> — 默认，工具全开</li>
-<li><strong>plan</strong> — 分析；改文件和 bash 先 <em>询问</em></li>
+<li><strong>plan</strong> — 分析；改文件和执行 bash 前先 <em>询问</em></li>
 </ul>
-<p><strong>子 Agent</strong>（<code>@name</code>，或由主 Agent 拉起）：</p>
+<p><strong>子 Agent</strong>（<code>@name</code>，或由主 Agent 派生）：</p>
 <ul>
 <li><strong>explore</strong> — 快速、只读搜索</li>
 <li><strong>general</strong> — 多步任务，可以改代码</li>
 </ul>
-<p>典型流程：<strong>plan → 达成一致 → Tab 切到 build → 小改动 → 错了就 <code>/undo</code></strong>。</p>
+<p>典型流程：<strong>plan → 达成一致 → Tab 切到 build → 小改动 → 出错就 <code>/undo</code></strong>。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="8" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="8" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E8%BF%9B%E9%98%B6%E9%85%8D%E7%BD%AE%E6%98%AF%E5%88%86%E5%B1%82%E7%9A%84">进阶：配置是分层的</h1>
-<p>优先用 <strong>项目本地</strong> 文件。放进 git 和团队共享。</p>
+<p>优先用<strong>项目本地</strong>文件。放入 git 与团队共享。</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">opencode.json          模型、权限、loop、experimental
 tui.json               主题、快捷键   ← 不在 opencode.json 里
-AGENTS.md              长期有效的说明
+AGENTS.md              长期说明
 .cursor/rules/*.mdc    兼容 Cursor 的规则
 .opencode/             commands、agents、skills、plugins、tools
 </code></pre>
@@ -146,16 +146,17 @@ AGENTS.md              长期有效的说明
 凭据：<code>~/.local/share/opencode/auth.json</code></p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="9" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="9" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
-<h1 id="%E8%BF%9B%E9%98%B6%E6%8A%8A%E4%BB%93%E5%BA%93%E6%95%99%E7%BB%99%E5%AE%83">进阶：把仓库教给它</h1>
-<p><strong><code>AGENTS.md</code></strong> — 目录结构、测试命令、风格、不要碰什么。</p>
+<h1 id="%E8%BF%9B%E9%98%B6%E8%AE%A9%E5%AE%83%E7%86%9F%E6%82%89%E4%BB%93%E5%BA%93">进阶：让它熟悉仓库</h1>
+<p><strong><code>AGENTS.md</code></strong> — 目录结构、测试命令、风格、哪些文件不要动。</p>
 <p><strong>Cursor <code>.mdc</code></strong> — 自动发现，不必在配置里逐条列出。</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-markdown">---
-description: TypeScript conventions
-globs: src/<span class="hljs-strong">**/<span class="hljs-emphasis">*.ts
+description: Python agent conventions
+globs: agents/<span class="hljs-strong">**/<span class="hljs-emphasis">*.py, robot/*</span><span class="hljs-emphasis">*/*</span>.py
 alwaysApply: false
 ---
-- Prefer const. Use Bun APIs.
-</span></span></code></pre>
+- Type hints on public functions. Pytest for behavior.
+- Planner owns the LLM loop; robot/ is motion only.
+</span></code></pre>
 <table>
 <thead>
 <tr>
@@ -170,7 +171,7 @@ alwaysApply: false
 </tr>
 <tr>
 <td><code>globs</code></td>
-<td>读到匹配文件时附上</td>
+<td>读取匹配文件时附加</td>
 </tr>
 <tr>
 <td>只有 <code>description</code></td>
@@ -181,7 +182,7 @@ alwaysApply: false
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="10" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="10" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E8%BF%9B%E9%98%B6%E6%9D%83%E9%99%90">进阶：权限</h1>
-<p><code>&quot;allow&quot;</code> · <code>&quot;ask&quot;</code> · <code>&quot;deny&quot;</code> — 按工具，支持 glob。</p>
+<p><code>&quot;allow&quot;</code> · <code>&quot;ask&quot;</code> · <code>&quot;deny&quot;</code> — 按工具区分，支持 glob。</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-json"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;permission&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">&quot;*&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ask&quot;</span><span class="hljs-punctuation">,</span>
@@ -189,25 +190,25 @@ alwaysApply: false
     <span class="hljs-attr">&quot;bash&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
       <span class="hljs-attr">&quot;*&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ask&quot;</span><span class="hljs-punctuation">,</span>
       <span class="hljs-attr">&quot;git *&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;allow&quot;</span><span class="hljs-punctuation">,</span>
-      <span class="hljs-attr">&quot;bun test*&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;allow&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;pytest*&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;allow&quot;</span><span class="hljs-punctuation">,</span>
       <span class="hljs-attr">&quot;rm *&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;deny&quot;</span>
     <span class="hljs-punctuation">}</span>
   <span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span>
 </code></pre>
-<p>plan Agent 对 edit/bash 本来就会 <em>询问</em>。无人值守 <code>/loop</code> 时再收紧。</p>
+<p>plan Agent 对 edit/bash 本来就会 <em>询问</em>。无人值守 <code>/loop</code> 时再进一步收紧。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="11" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="11" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E8%BF%9B%E9%98%B6%E8%87%AA%E5%AE%9A%E4%B9%89%E6%96%9C%E6%9D%A0%E5%91%BD%E4%BB%A4">进阶：自定义斜杠命令</h1>
 <p><code>.opencode/command/test.md</code></p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-markdown">---
-description: Run tests and fix failures
+description: 运行测试并修复失败
 <span class="hljs-section">agent: build
 ---</span>
-Run the suite. Fix the smallest set of files that goes green.
+运行 pytest。修复最小范围的文件，让测试变绿。
 $ARGUMENTS
 </code></pre>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">/test the auth package
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">/test agents/planner
 </code></pre>
 <p><code>$ARGUMENTS</code>、<code>$1</code>、<code>$2</code> · 反引号注入 shell 输出 · 可选 <code>model</code> / <code>subtask</code>。</p>
 </section>
@@ -218,20 +219,20 @@ $ARGUMENTS
 </code></pre>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-markdown">---
 name: git-release
-<span class="hljs-section">description: Changelog, tag, sanity checks. Do not push tags unless asked.
+<span class="hljs-section">description: Changelog、tag、健全性检查。除非要求，否则不要推送 tag。
 ---</span>
 </code></pre>
 <p>还有：<code>.claude/skills/</code>、<code>.agents/skills/</code>、<code>~/.config/opencode/skills/</code>。</p>
-<p>描述写具体，模型才能选对 skill。</p>
+<p>描述写得具体，模型才能选对 skill。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="13" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="13" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E8%BF%9B%E9%98%B6%E8%87%AA%E5%AE%9A%E4%B9%89-tools-%E4%B8%8E-plugins">进阶：自定义 tools 与 plugins</h1>
-<p><strong>Tools</strong> — 给 LLM 调用的函数。</p>
+<p><strong>Tools</strong> — 供 LLM 调用的函数。</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-ts"><span class="hljs-comment">// .opencode/tools/database.ts  → 工具名 &quot;database&quot;</span>
 <span class="hljs-keyword">import</span> { tool } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@opencode-ai/plugin&quot;</span>
 
 <span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-title function_">tool</span>({
-  <span class="hljs-attr">description</span>: <span class="hljs-string">&quot;Query the project database&quot;</span>,
+  <span class="hljs-attr">description</span>: <span class="hljs-string">&quot;查询机器人遥测数据（位姿、电量、上一次工具调用）&quot;</span>,
   <span class="hljs-attr">args</span>: { <span class="hljs-attr">query</span>: tool.<span class="hljs-property">schema</span>.<span class="hljs-title function_">string</span>() },
   <span class="hljs-keyword">async</span> <span class="hljs-title function_">execute</span>(<span class="hljs-params">args</span>) { <span class="hljs-comment">/* ... */</span> },
 })
@@ -244,7 +245,7 @@ name: git-release
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="14" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="14" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E8%BF%9B%E9%98%B6mcp">进阶：MCP</h1>
-<p>外部工具（浏览器、工单、文档）。它们 <strong>消耗上下文</strong>。</p>
+<p>外部工具（浏览器、工单、文档）。它们会<strong>占用上下文</strong>。</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-json"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;mcp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">&quot;browser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
@@ -257,7 +258,7 @@ name: git-release
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">opencode mcp add
 opencode mcp list
 </code></pre>
-<p>少开几个。GitHub 一类 MCP 很容易把窗口撑爆。</p>
+<p>少开几个。GitHub 一类 MCP 很容易把上下文窗口撑爆。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="15" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="15" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="superpowers--%E6%96%B9%E6%B3%95%E8%AE%BA%E6%8F%92%E4%BB%B6">Superpowers — 方法论插件</h1>
@@ -286,23 +287,23 @@ opencode mcp list
 </table>
 <ul>
 <li><strong>TDD</strong> — 没有失败测试，不写生产代码</li>
-<li><strong>系统性</strong> — 先根因，再修</li>
-<li><strong>YAGNI</strong> — 能用的最小设计</li>
+<li><strong>系统性</strong> — 先找根因，再修</li>
+<li><strong>YAGNI</strong> — 能跑起来的最小设计</li>
 </ul>
-<p>Skills 是 <strong>必须走的流程</strong>，不是建议。和 <code>/loop</code>、<code>/team</code> 独立 — 先 brainstorm，再用它们去执行。</p>
+<p>Skills 是<strong>必须走的流程</strong>，不是建议。和 <code>/loop</code>、<code>/team</code> 相互独立 — 先 brainstorm，再用它们去执行。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="16" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="16" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="superpowers--%E6%80%8E%E4%B9%88%E5%8A%A0%E8%BD%BD">Superpowers — 怎么加载</h1>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-json"><span class="hljs-attr">&quot;plugin&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;superpowers@git+https://github.com/obra/superpowers.git&quot;</span><span class="hljs-punctuation">]</span>
 </code></pre>
-<p>启动时：按 git spec 拉取 → 把 bootstrap 注入 <strong>第一条</strong> 用户消息 → 用 <code>skill</code> 工具加载手册。</p>
-<p>新会话（<code>/new</code>）冒烟：</p>
+<p>启动时：按 git spec 拉取 → 把 bootstrap 注入<strong>第一条</strong>用户消息 → 用 <code>skill</code> 工具加载手册。</p>
+<p>新会话（<code>/new</code>）冒烟测试：</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">Tell me about your superpowers
 </code></pre>
-<p>它应能说出这套库，以及规则：<strong>动手前先调 skill</strong>。然后再试：</p>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">Let&#x27;s add a CLI flag that prints loaded plugins and exits.
+<p>它应能说出这个库的名字，以及规则：<strong>动手前先调 skill</strong>。然后再试：</p>
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">Let&#x27;s add max_steps to the Python LLM planner so tool calls cannot loop forever.
 </code></pre>
-<p>期望先走 <strong>brainstorming</strong>（提问、短设计、等你点头）— 还不要写代码。</p>
+<p>期望先走 <strong>brainstorming</strong>（提问、短设计、等你点头）— 这时还不写代码。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="17" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="17" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="superpowers--%E9%BB%98%E8%AE%A4%E5%8A%9F%E8%83%BD%E8%B7%AF%E5%BE%84">Superpowers — 默认功能路径</h1>
@@ -320,11 +321,11 @@ writing-plans     → plan 文件
 </thead>
 <tbody>
 <tr>
-<td>“Let's build X”</td>
+<td>“Let's add max_steps to the planner”</td>
 <td><strong>brainstorming</strong> — 设计没 OK 之前不写代码</td>
 </tr>
 <tr>
-<td>“Fix this bug”</td>
+<td>“Planner never stops calling tools”</td>
 <td><strong>systematic-debugging</strong></td>
 </tr>
 <tr>
@@ -333,25 +334,25 @@ writing-plans     → plan 文件
 </tr>
 </tbody>
 </table>
-<p>硬门槛：「这太简单了」也要一份短设计。之后如果活很长或要并行，再用 <code>/loop</code> 或 <code>/team</code>。</p>
+<p>硬门槛：「这太简单了」也要一份短设计。之后如果工作量大或要并行，再用 <code>/loop</code> 或 <code>/team</code>。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="18" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="18" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="ralph-loop--%E4%B8%8D%E8%BE%BE%E7%9B%AE%E7%9A%84%E4%B8%8D%E7%BD%A2%E4%BC%91">Ralph Loop — 不达目的不罢休</h1>
 <p>名字来自《辛普森一家》的 <strong>Ralph Wiggum</strong>：屡败屡战，永不放弃。</p>
-<p>一种让 AI 编程助手 <strong>自主持续迭代</strong>，直到复杂任务真正完成的工作模式。不是一次性回答。</p>
-<p>普通助手想一轮就停，复杂任务经常半途而废。Ralph Loop <strong>拒绝 idle</strong>。</p>
+<p>一种让 AI 编程助手<strong>自主持续迭代</strong>、直到复杂任务真正完成的工作模式。不是一次性回答。</p>
+<p>普通助手一轮就停下，复杂任务经常半途而废。Ralph Loop <strong>拒绝闲置</strong>。</p>
 <p>本 fork 的 <code>/loop</code> 就是这套模式：完成暗号、拦截退出、直到目标完成（或预算用尽）。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="19" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="19" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="ralph-loop--%E6%A0%B8%E5%BF%83%E6%9C%BA%E5%88%B6">Ralph Loop — 核心机制</h1>
 <p>从「一次性回答」到「持续工作」：</p>
 <ol>
-<li>下达 <strong>任务</strong> 和 <strong>完成暗号</strong>（经典：<code>&lt;promise&gt;DONE&lt;/promise&gt;</code>；这里：<code>LOOP_DONE</code>）</li>
+<li>下达<strong>任务</strong>和<strong>完成暗号</strong>（经典：<code>&lt;promise&gt;DONE&lt;/promise&gt;</code>；这里：<code>LOOP_DONE</code>）</li>
 <li>AI 开始干活：改代码、跑测试、提交</li>
 <li><strong>拦截退出</strong> — 它准备停下时，Stop Hook / tick 把它拦住</li>
 <li><strong>检查暗号</strong>
 <ul>
-<li>没有 → 把原任务再喂回去，接着仓库里的结果继续</li>
+<li>没有 → 把原任务再喂回去，从仓库现有结果继续</li>
 <li>有了 → 循环结束</li>
 </ul>
 </li>
@@ -363,7 +364,7 @@ writing-plans     → plan 文件
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="20" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="20" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="ralph-loop--hitlafk%E5%AE%89%E5%85%A8">Ralph Loop — HITL、AFK、安全</h1>
-<p><strong>价值：</strong> 短时间 <strong>无人值守（AFK）</strong>。设好任务走开，回来验收。</p>
+<p><strong>价值：</strong> 可以短时间<strong>无人值守（AFK）</strong>。设好任务走开，回来验收。</p>
 <table>
 <thead>
 <tr>
@@ -374,7 +375,7 @@ writing-plans     → plan 文件
 <tbody>
 <tr>
 <td><strong>人在回路（HITL）</strong></td>
-<td>盯每一步，随时介入。学习和调试首选。</td>
+<td>盯着每一步，随时介入。学习和调试首选。</td>
 </tr>
 <tr>
 <td><strong>无人值守（AFK）</strong></td>
@@ -387,12 +388,12 @@ writing-plans     → plan 文件
 <li><strong>最大迭代次数</strong> — 硬上限（这里：<code>/loop 50</code> 或截止时间 <code>2h</code>）</li>
 <li><strong>人工中断</strong> — <code>/loop stop</code>（经典 Ralph：<code>/cancel-ralph</code>）</li>
 </ul>
-<p><strong>它不是 TDD / YAGNI。</strong> 那是「如何写出好代码」的开发实践；Ralph 是「如何让 AI 持续干到完」的自动化策略。两者可以叠：每轮走红 → 绿 → 重构；提示词里写明 YAGNI — 只写当前任务要的最少代码。</p>
+<p><strong>它不是 TDD / YAGNI。</strong> 那是「如何写出好代码」的开发实践；Ralph 是「如何让 AI 持续干到完」的自动化策略。两者可以叠加：每轮走红 → 绿 → 重构；提示词里写明 YAGNI — 只写当前任务要的最少代码。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="21" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="21" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="agent-%E5%BE%AA%E7%8E%AF">Agent 循环</h1>
 <p>OpenCode 不是「一次提问对应一次 LLM 调用」。</p>
-<p>一个 <strong>session</strong> 会在 <code>SessionPrompt.loop</code> 里保持 <strong>busy</strong>，直到模型 <strong>不再调工具</strong>（或你按 Escape / 硬停止）。</p>
+<p>一个 <strong>session</strong> 会在 <code>SessionPrompt.loop</code> 里保持 <strong>busy</strong>，直到模型<strong>不再调工具</strong>（或你按 Escape / 硬停止）。</p>
 <p>两种不同的「循环」：</p>
 <table>
 <thead>
@@ -406,7 +407,7 @@ writing-plans     → plan 文件
 <tr>
 <td><strong>会话循环</strong></td>
 <td><code>prompt.ts</code> <code>loop()</code></td>
-<td>继续：LLM → 工具 → compact → 再来</td>
+<td>继续转：LLM → 工具 → compact → 再来</td>
 </tr>
 <tr>
 <td><strong>自主 <code>/loop</code></strong></td>
@@ -415,7 +416,7 @@ writing-plans     → plan 文件
 </tr>
 </tbody>
 </table>
-<p>本节剩下的是 <strong>会话循环</strong>。<code>/loop</code> 叠在它上面。</p>
+<p>本节剩下的是<strong>会话循环</strong>。<code>/loop</code> 叠在它上面。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="22" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="22" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E4%B8%80%E5%BC%A0%E5%9B%BE">一张图</h1>
@@ -453,7 +454,7 @@ writing-plans     → plan 文件
 <li>流式事件变成 parts：reasoning、text、tool calls</li>
 <li>工具执行（edit、bash、read、…）。这一步会 snapshot git patch。</li>
 </ol>
-<p>然后 <strong>会话循环看 <code>finish</code></strong>，决定：再跑一轮、compact，还是停。</p>
+<p>然后<strong>会话循环看 <code>finish</code></strong>，决定：再跑一轮、compact，还是停。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="24" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="24" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E4%B8%BA%E4%BB%80%E4%B9%88%E5%AE%83%E4%BC%9A%E7%BB%A7%E7%BB%AD%E8%BD%AC">为什么它会继续转</h1>
@@ -494,18 +495,18 @@ writing-plans     → plan 文件
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="25" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="25" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E5%BE%AA%E7%8E%AF%E4%B8%AD%E7%9A%84-compaction">循环中的 Compaction</h1>
-<p>上下文有限。溢出 <strong>不会</strong> 杀掉会话。</p>
+<p>上下文有限。溢出<strong>不会</strong>杀掉会话。</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">tokens 太高
     → 入队 compaction part
     → compaction agent 总结历史
     → 带着摘要继续循环
 </code></pre>
 <ul>
-<li>在 assistant 结束之后 <strong>以及</strong> processor 一步之后都会检查</li>
+<li>在 assistant 结束之后<strong>以及</strong> processor 一步之后都会检查</li>
 <li><code>/compact</code> 是手动版（<code>auto: false</code>）</li>
 <li>会话循环退出后，旧的工具输出可能被 <strong>prune</strong></li>
 </ul>
-<p>这就是 <code>/loop</code> 能跑几小时的原因：compaction 是 <strong>循环的一轮</strong>，不是终点。</p>
+<p>这就是 <code>/loop</code> 能跑几小时的原因：compaction 是<strong>循环的一轮</strong>，不是终点。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="26" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="26" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="processor-%E5%86%85%E9%83%A8">Processor 内部</h1>
@@ -522,7 +523,7 @@ writing-plans     → plan 文件
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="27" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="27" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="loop-%E6%80%8E%E4%B9%88%E7%94%A8%E4%B8%8A%E8%BF%99%E4%B8%80%E5%A5%97"><code>/loop</code> 怎么用上这一套</h1>
-<p>当会话循环本来要 <strong>退出</strong>（assistant 的 <code>finish</code> 是真正的 stop）：</p>
+<p>当会话循环本来要<strong>退出</strong>（assistant 的 <code>finish</code> 是真正的 stop）：</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">SessionLoop.tick(session)
 </code></pre>
 <table>
@@ -551,16 +552,16 @@ writing-plans     → plan 文件
 </tr>
 </tbody>
 </table>
-<p>那条合成消息就是又一轮用户输入 — <strong>同一个</strong> 会话循环再启动。</p>
-<p><code>/loop</code> 并不替换 Agent 循环。它 <strong>拒绝 idle</strong>，直到目标完成。</p>
+<p>那条合成消息就是又一轮用户输入 — <strong>同一个</strong>会话循环再启动。</p>
+<p><code>/loop</code> 并不替换 Agent 循环。它<strong>拒绝 idle</strong>，直到目标完成。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="28" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="28" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="loop--%E9%95%BF%E7%9B%AE%E6%A0%87"><code>/loop</code> — 长目标</h1>
 <p>本 fork 的 <strong>Ralph Loop</strong>。跨 <strong>compaction</strong> 继续干活。你不用盯着喊 “continue”。</p>
 <p>这里的完成暗号是 <strong><code>LOOP_DONE</code></strong>（需要你出面则 <strong><code>LOOP_BLOCKED</code></strong>）。</p>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">/loop 2h ship the auth refactor
-/loop 50 @docs/roadmap.md
-/loop 2h 30 finish remaining todos
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">/loop 2h make pytest tests/test_planner.py green
+/loop 50 @docs/agent-loop.md
+/loop 2h 30 cap planner tool calls with max_steps
 /loop stop
 </code></pre>
 <table>
@@ -588,10 +589,10 @@ writing-plans     → plan 文件
 <p>Agent 必须以 <strong><code>LOOP_DONE</code></strong> 或 <strong><code>LOOP_BLOCKED</code></strong> 结束。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="29" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="29" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
-<h1 id="loop--%E8%A6%81-verify%E5%90%A6%E5%88%99%E9%9D%A0%E8%87%AA%E8%A7%89"><code>/loop</code> — 要 verify，否则靠自觉</h1>
+<h1 id="loop--%E8%A6%81-verify%E5%90%A6%E5%88%99%E5%8F%AA%E9%9D%A0%E8%87%AA%E8%A7%89"><code>/loop</code> — 要 verify，否则只靠自觉</h1>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-json"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;loop&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-    <span class="hljs-attr">&quot;verify&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;bun typecheck&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;bun test&quot;</span><span class="hljs-punctuation">]</span>
+    <span class="hljs-attr">&quot;verify&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;pytest -q&quot;</span><span class="hljs-punctuation">]</span>
   <span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span>
 </code></pre>
@@ -602,12 +603,12 @@ writing-plans     → plan 文件
 <li>任一失败 → <strong>拒绝</strong>；Agent 拿到 stdout 继续干</li>
 </ol>
 <p><code>LOOP_BLOCKED</code> 一定停（密钥、不可逆选择、缺依赖）。</p>
-<p>状态存在 SQLite — 重启可以 <strong>接着同一个 loop</strong>。</p>
+<p>状态存在 SQLite — 重启可以<strong>接着同一个 loop</strong>。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="30" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="30" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="loop--%E5%86%99%E5%87%BA%E8%83%BD%E5%AE%8C%E6%88%90%E7%9A%84%E7%9B%AE%E6%A0%87"><code>/loop</code> — 写出能完成的目标</h1>
 <p><strong>差：</strong> “改进这个代码库”</p>
-<p><strong>好：</strong> “让 <code>packages/api</code> 的 <code>bun test</code> 全绿。不要改公开类型。”</p>
+<p><strong>好：</strong> “让 <code>pytest tests/test_planner.py</code> 全绿。不要改公开的 Agent API。”</p>
 <ul>
 <li>完成条件要具体</li>
 <li>永远配上 <code>loop.verify</code></li>
@@ -621,22 +622,22 @@ writing-plans     → plan 文件
 <p><strong>默认关闭：</strong></p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">OPENCODE_EXPERIMENTAL_TEAM_MODE=1 bun dev /path/to/project
 </code></pre>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">/team review auth for XSS and add tests
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-text">/team review the LLM planner for unbounded tool loops and add pytest
 </code></pre>
-<p>Lead：建队 → 拆任务 → 拉起 2–3 个专家 → 协调 → merge → cleanup。</p>
-<p>标题栏徽章：<code>team:auth-review · 2 busy · 1 idle</code></p>
+<p>Lead：建队 → 拆任务 → 派生 2–3 个专家 → 协调 → merge → cleanup。</p>
+<p>标题栏徽章：<code>team:planner · 2 busy · 1 idle</code></p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="32" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="32" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
-<h1 id="team--%E6%8B%89%E8%B5%B7%E6%96%B9%E5%BC%8F"><code>/team</code> — 拉起方式</h1>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-js"><span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;create&quot;</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">&quot;auth-review&quot;</span>, <span class="hljs-attr">delegate</span>: <span class="hljs-literal">true</span> })
+<h1 id="team--%E6%B4%BE%E7%94%9F%E6%96%B9%E5%BC%8F"><code>/team</code> — 派生方式</h1>
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-js"><span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;create&quot;</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">&quot;planner&quot;</span>, <span class="hljs-attr">delegate</span>: <span class="hljs-literal">true</span> })
 
 <span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;spawn&quot;</span>, <span class="hljs-attr">member</span>: <span class="hljs-string">&quot;scout&quot;</span>, <span class="hljs-attr">agent</span>: <span class="hljs-string">&quot;explore&quot;</span>,
-       <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Map auth/XSS surfaces&quot;</span>, <span class="hljs-attr">worktree</span>: <span class="hljs-literal">false</span> })
+       <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Map the LLM tool loop in agents/planner.py; find missing max_steps&quot;</span>, <span class="hljs-attr">worktree</span>: <span class="hljs-literal">false</span> })
 
 <span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;spawn&quot;</span>, <span class="hljs-attr">member</span>: <span class="hljs-string">&quot;builder&quot;</span>, <span class="hljs-attr">agent</span>: <span class="hljs-string">&quot;build&quot;</span>,
-       <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Add tests for scout findings&quot;</span>, <span class="hljs-attr">plan_approval</span>: <span class="hljs-literal">true</span> })
+       <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Add pytest for unbounded tool calls; cap with max_steps&quot;</span>, <span class="hljs-attr">plan_approval</span>: <span class="hljs-literal">true</span> })
 
-<span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;tasks&quot;</span>, <span class="hljs-attr">task_action</span>: <span class="hljs-string">&quot;add&quot;</span>, <span class="hljs-attr">title</span>: <span class="hljs-string">&quot;map auth routes&quot;</span> })
+<span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;tasks&quot;</span>, <span class="hljs-attr">task_action</span>: <span class="hljs-string">&quot;add&quot;</span>, <span class="hljs-attr">title</span>: <span class="hljs-string">&quot;map planner tool loop&quot;</span> })
 <span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;status&quot;</span> })
 </code></pre>
 <ul>
@@ -651,33 +652,33 @@ writing-plans     → plan 文件
     → claim → claimed
     → complete → done
 </code></pre>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-js"><span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;message&quot;</span>, <span class="hljs-attr">to</span>: <span class="hljs-string">&quot;builder&quot;</span>, <span class="hljs-attr">text</span>: <span class="hljs-string">&quot;Login form first&quot;</span> })
-<span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;message&quot;</span>, <span class="hljs-attr">to</span>: <span class="hljs-string">&quot;*&quot;</span>, <span class="hljs-attr">text</span>: <span class="hljs-string">&quot;Do not touch src/legacy&quot;</span> })
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-js"><span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;message&quot;</span>, <span class="hljs-attr">to</span>: <span class="hljs-string">&quot;builder&quot;</span>, <span class="hljs-attr">text</span>: <span class="hljs-string">&quot;Planner loop first, then robot/control&quot;</span> })
+<span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;message&quot;</span>, <span class="hljs-attr">to</span>: <span class="hljs-string">&quot;*&quot;</span>, <span class="hljs-attr">text</span>: <span class="hljs-string">&quot;Do not touch robot/firmware&quot;</span> })
 <span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;merge&quot;</span>, <span class="hljs-attr">member</span>: <span class="hljs-string">&quot;builder&quot;</span> })
 <span class="hljs-title function_">team</span>({ <span class="hljs-attr">action</span>: <span class="hljs-string">&quot;cleanup&quot;</span> })
 </code></pre>
-<p>空闲成员 <strong>以及 lead</strong> 收到消息会自动唤醒。嵌套的 <code>task</code> 子 Agent <strong>不能</strong> 用 <code>team</code>。</p>
+<p>空闲成员<strong>以及 lead</strong> 收到消息会自动唤醒。嵌套的 <code>task</code> 子 Agent <strong>不能</strong>用 <code>team</code>。</p>
 <p>优先 <strong>2–3</strong> 个队友。不要一窝蜂。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="34" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="34" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="%E9%9D%9E%E6%B5%81%E5%BC%8F-llm-%E8%B0%83%E7%94%A8">非流式 LLM 调用</h1>
 <p>默认：<code>streamText()</code> — token 边到边显示。</p>
-<p>有些代理 / 本地模型会 <strong>弄坏 SSE</strong>（卡住、工具 JSON 被截断）。</p>
+<p>有些代理 / 本地模型会<strong>弄坏 SSE</strong>（卡住、工具 JSON 被截断）。</p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-json"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;experimental&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">&quot;disable_stream&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
   <span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span>
 </code></pre>
-<p>改用 <code>generateText()</code>，再 <strong>回放</strong> 一条假流，UI 不用改。</p>
+<p>改用 <code>generateText()</code>，再<strong>回放</strong>一条假流，UI 不用改。</p>
 <p>代价：没有打字机效果。等完整回复到了，一次性倒出来。</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="35" data-paginate="true" data-lang="zh-CN" lang="zh-CN" data-marpit-pagination="35" style="--paginate:true;--lang:zh-CN;" data-marpit-pagination-total="40">
 <h1 id="cli%E6%9C%8D%E5%8A%A1attach">CLI、服务、attach</h1>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">opencode run <span class="hljs-string">&quot;Explain SessionProcessor tool calls&quot;</span>
-opencode run -m anthropic/claude-sonnet-4-5 -f src/index.ts <span class="hljs-string">&quot;Review&quot;</span>
-opencode run --format json <span class="hljs-string">&quot;List public SDK exports&quot;</span>
-opencode run -c <span class="hljs-string">&quot;Finish the remaining todos&quot;</span>
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">opencode run <span class="hljs-string">&quot;Explain how agents/planner.py stops tool-calling&quot;</span>
+opencode run -m anthropic/claude-sonnet-4-5 -f agents/planner.py <span class="hljs-string">&quot;Review the LLM loop&quot;</span>
+opencode run --format json <span class="hljs-string">&quot;List public methods on Agent&quot;</span>
+opencode run -c <span class="hljs-string">&quot;Finish the remaining planner tests&quot;</span>
 </code></pre>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">opencode serve --port 4096
 opencode attach http://127.0.0.1:4096
@@ -690,9 +691,9 @@ opencode run --attach http://127.0.0.1:4096 <span class="hljs-string">&quot;Summ
 <ol>
 <li><code>/init</code> + 收紧 <code>AGENTS.md</code></li>
 <li>权限：允许 edit 和测试命令；拒绝 <code>rm</code> / <code>git push</code></li>
-<li><code>loop.verify</code>：typecheck + tests</li>
+<li><code>loop.verify</code>：<code>pytest -q</code></li>
 <li><strong>plan</strong> Agent：先把设计谈妥</li>
-<li><code>/loop 2h 40 land X without changing public API</code></li>
+<li><code>/loop 2h 40 cap planner tool calls; do not change the public Agent API</code></li>
 <li>需要调研和实现并行 → 改用 <strong><code>/team</code></strong>（打开 flag）</li>
 <li>自己看 diff；<code>/undo</code> 是基于 git 的</li>
 </ol>
@@ -713,7 +714,7 @@ opencode run --attach http://127.0.0.1:4096 <span class="hljs-string">&quot;Summ
 </tr>
 <tr>
 <td>一次聚焦的改动</td>
-<td><strong>build</strong>，<code>@</code> 文件</td>
+<td><strong>build</strong>，<code>@agents/planner.py</code></td>
 </tr>
 <tr>
 <td>写代码前先设计</td>

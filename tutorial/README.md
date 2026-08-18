@@ -533,6 +533,7 @@ Logs: `~/.local/share/opencode/log/`.
 | Topic | Location |
 | --- | --- |
 | Superpowers (design → plan → TDD plugin) | [`superpowers.md`](superpowers.md) |
+| How Superpowers bootstraps the first user message | [`superpowers-bootstrap.md`](superpowers-bootstrap.md) |
 | Exhaustive config (for agents and humans) | [`OPENCODE_CONFIG.md`](../OPENCODE_CONFIG.md) |
 | Team mode internals | [`packages/opencode/src/team/README.md`](../packages/opencode/src/team/README.md) |
 | Contributing / `bun dev` details | [`CONTRIBUTING.md`](../CONTRIBUTING.md) |

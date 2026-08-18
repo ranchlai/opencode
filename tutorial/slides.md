@@ -81,7 +81,7 @@ Then in the prompt:
 ```
 
 ```text
-Give me a 10-line map of this repo.
+Map agents/, robot/, and how the LLM planner calls tools.
 ```
 
 ---
@@ -150,11 +150,12 @@ Credentials: `~/.local/share/opencode/auth.json`
 
 ```markdown
 ---
-description: TypeScript conventions
-globs: src/**/*.ts
+description: Python agent conventions
+globs: agents/**/*.py, robot/**/*.py
 alwaysApply: false
 ---
-- Prefer const. Use Bun APIs.
+- Type hints on public functions. Pytest for behavior.
+- Planner owns the LLM loop; robot/ is motion only.
 ```
 
 | Frontmatter | Effect |
@@ -179,7 +180,7 @@ alwaysApply: false
     "bash": {
       "*": "ask",
       "git *": "allow",
-      "bun test*": "allow",
+      "pytest*": "allow",
       "rm *": "deny"
     }
   }
@@ -201,12 +202,12 @@ Plan agent already *asks* on edit/bash. Tighten further for unattended `/loop`.
 description: Run tests and fix failures
 agent: build
 ---
-Run the suite. Fix the smallest set of files that goes green.
+Run pytest. Fix the smallest set of files that goes green.
 $ARGUMENTS
 ```
 
 ```text
-/test the auth package
+/test agents/planner
 ```
 
 `$ARGUMENTS`, `$1`, `$2` · backticks inject shell output · optional `model` / `subtask`.
@@ -247,7 +248,7 @@ Keep descriptions specific so the model picks the right skill.
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Query the project database",
+  description: "Query robot telemetry (pose, battery, last tool call)",
   args: { query: tool.schema.string() },
   async execute(args) { /* ... */ },
 })
@@ -325,7 +326,7 @@ Tell me about your superpowers
 It should name the library and the rule: **invoke skills before acting**. Then try:
 
 ```text
-Let's add a CLI flag that prints loaded plugins and exits.
+Let's add max_steps to the Python LLM planner so tool calls cannot loop forever.
 ```
 
 Expect **brainstorming** (questions, a short design, your OK) — not code yet.
@@ -345,8 +346,8 @@ finish the branch
 
 | You say | Skill first |
 | --- | --- |
-| “Let's build X” | **brainstorming** — no code until you OK the design |
-| “Fix this bug” | **systematic-debugging** |
+| “Let's add max_steps to the planner” | **brainstorming** — no code until you OK the design |
+| “Planner never stops calling tools” | **systematic-debugging** |
 | Implement the plan | **test-driven-development** |
 
 Hard gate: “this is too simple” still gets a short design. After that, `/loop` or `/team` if the work is long or parallel.
@@ -564,9 +565,9 @@ This fork’s **Ralph Loop**. Keeps working across **compaction**. You do not ba
 Done token here is **`LOOP_DONE`** (or **`LOOP_BLOCKED`** if it needs you).
 
 ```text
-/loop 2h ship the auth refactor
-/loop 50 @docs/roadmap.md
-/loop 2h 30 finish remaining todos
+/loop 2h make pytest tests/test_planner.py green
+/loop 50 @docs/agent-loop.md
+/loop 2h 30 cap planner tool calls with max_steps
 /loop stop
 ```
 
@@ -587,7 +588,7 @@ Agent must end with **`LOOP_DONE`** or **`LOOP_BLOCKED`**.
 ```json
 {
   "loop": {
-    "verify": ["bun typecheck", "bun test"]
+    "verify": ["pytest -q"]
   }
 }
 ```
@@ -610,7 +611,7 @@ State lives in SQLite — restart can **resume** the same loop.
 
 **Bad:** “improve the codebase”
 
-**Good:** “Make `packages/api` `bun test` green. Do not change public types.”
+**Good:** “Make `pytest tests/test_planner.py` green. Do not change the public Agent API.”
 
 - Concrete done condition
 - Always pair with `loop.verify`
@@ -632,12 +633,12 @@ OPENCODE_EXPERIMENTAL_TEAM_MODE=1 bun dev /path/to/project
 ```
 
 ```text
-/team review auth for XSS and add tests
+/team review the LLM planner for unbounded tool loops and add pytest
 ```
 
 Lead: create team → split tasks → spawn 2–3 specialists → coordinate → merge → cleanup.
 
-Header badge: `team:auth-review · 2 busy · 1 idle`
+Header badge: `team:planner · 2 busy · 1 idle`
 
 ---
 
@@ -646,15 +647,15 @@ Header badge: `team:auth-review · 2 busy · 1 idle`
 # `/team` — spawn pattern
 
 ```js
-team({ action: "create", name: "auth-review", delegate: true })
+team({ action: "create", name: "planner", delegate: true })
 
 team({ action: "spawn", member: "scout", agent: "explore",
-       prompt: "Map auth/XSS surfaces", worktree: false })
+       prompt: "Map the LLM tool loop in agents/planner.py; find missing max_steps", worktree: false })
 
 team({ action: "spawn", member: "builder", agent: "build",
-       prompt: "Add tests for scout findings", plan_approval: true })
+       prompt: "Add pytest for unbounded tool calls; cap with max_steps", plan_approval: true })
 
-team({ action: "tasks", task_action: "add", title: "map auth routes" })
+team({ action: "tasks", task_action: "add", title: "map planner tool loop" })
 team({ action: "status" })
 ```
 
@@ -675,8 +676,8 @@ add → pending (or blocked on deps)
 ```
 
 ```js
-team({ action: "message", to: "builder", text: "Login form first" })
-team({ action: "message", to: "*", text: "Do not touch src/legacy" })
+team({ action: "message", to: "builder", text: "Planner loop first, then robot/control" })
+team({ action: "message", to: "*", text: "Do not touch robot/firmware" })
 team({ action: "merge", member: "builder" })
 team({ action: "cleanup" })
 ```
@@ -714,10 +715,10 @@ Tradeoff: no live typing. Wait, then the whole reply dumps.
 # CLI, server, attach
 
 ```bash
-opencode run "Explain SessionProcessor tool calls"
-opencode run -m anthropic/claude-sonnet-4-5 -f src/index.ts "Review"
-opencode run --format json "List public SDK exports"
-opencode run -c "Finish the remaining todos"
+opencode run "Explain how agents/planner.py stops tool-calling"
+opencode run -m anthropic/claude-sonnet-4-5 -f agents/planner.py "Review the LLM loop"
+opencode run --format json "List public methods on Agent"
+opencode run -c "Finish the remaining planner tests"
 ```
 
 ```bash
@@ -736,9 +737,9 @@ Reuse a warm server so MCP does not cold-boot on every `run`.
 
 1. `/init` + tighten `AGENTS.md`
 2. Permissions: allow edit + test commands; deny `rm` / `git push`
-3. `loop.verify`: typecheck + tests
+3. `loop.verify`: `pytest -q`
 4. **plan** agent: agree the design
-5. `/loop 2h 40 land X without changing public API`
+5. `/loop 2h 40 cap planner tool calls; do not change the public Agent API`
 6. If it needs research + impl in parallel → **`/team`** instead (flag on)
 7. Review the diff yourself; `/undo` is git-backed
 
@@ -751,7 +752,7 @@ Reuse a warm server so MCP does not cold-boot on every `run`.
 | Situation | Tool |
 | --- | --- |
 | Think before editing | **plan** agent |
-| One focused change | **build**, `@` files |
+| One focused change | **build**, `@agents/planner.py` |
 | Design before any code | **Superpowers** brainstorming |
 | Fix a bug with evidence | **systematic-debugging** |
 | Model keeps calling tools | **Session loop** (automatic) |
