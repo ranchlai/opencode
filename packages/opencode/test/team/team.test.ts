@@ -16,7 +16,9 @@ describe("team mode", () => {
   let cancel: ReturnType<typeof spyOn>
 
   beforeAll(() => {
-    prompt = spyOn(SessionPrompt, "prompt").mockImplementation(async () => undefined as never)
+    prompt = spyOn(SessionPrompt, "prompt").mockImplementation(
+      (async () => undefined as never) as unknown as typeof SessionPrompt.prompt,
+    )
     cancel = spyOn(SessionPrompt, "cancel").mockImplementation(() => undefined)
   })
 
