@@ -1,4 +1,4 @@
-import { useDialog } from "@tui/ui/dialog"
+import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { DialogSelect, type DialogSelectOption, type DialogSelectRef } from "@tui/ui/dialog-select"
 import {
   createContext,
@@ -20,12 +20,13 @@ export type Slash = {
   aliases?: string[]
 }
 
-export type CommandOption = DialogSelectOption<string> & {
+export type CommandOption = Omit<DialogSelectOption<string>, "onSelect"> & {
   keybind?: KeybindKey
   suggested?: boolean
   slash?: Slash
   hidden?: boolean
   enabled?: boolean
+  onSelect?: (ctx: DialogContext, args?: string) => void
 }
 
 function init() {
@@ -71,14 +72,25 @@ function init() {
   })
 
   const result = {
-    trigger(name: string) {
+    trigger(name: string, args?: string) {
       for (const option of entries()) {
         if (option.value === name) {
           if (!isEnabled(option)) return
-          option.onSelect?.(dialog)
+          option.onSelect?.(dialog, args)
           return
         }
       }
+    },
+    triggerSlash(name: string, args?: string) {
+      for (const option of entries()) {
+        const slash = option.slash
+        if (!slash) continue
+        if (slash.name !== name && !slash.aliases?.includes(name)) continue
+        if (!isEnabled(option)) return true
+        option.onSelect?.(dialog, args)
+        return true
+      }
+      return false
     },
     slashes() {
       return visibleOptions().flatMap((option) => {

@@ -65,6 +65,7 @@ const TIPS = [
   "Use {highlight}/sessions{/highlight} or {highlight}Ctrl+X L{/highlight} to list and continue previous conversations",
   "Run {highlight}/compact{/highlight} to summarize long sessions near context limits",
   "Press {highlight}Ctrl+X X{/highlight} or {highlight}/export{/highlight} to save the conversation as Markdown",
+  "Use {highlight}/save notes.md{/highlight} to write the last model response to a file, or {highlight}/save_and_quit{/highlight} to save and exit",
   "Press {highlight}Ctrl+X Y{/highlight} to copy the assistant's last message to clipboard",
   "Press {highlight}Ctrl+P{/highlight} to see all available actions and commands",
   "Run {highlight}/connect{/highlight} to add API keys for 75+ supported LLM providers",

@@ -78,6 +78,7 @@ import { Global } from "@/global"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
+import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { formatTranscript } from "../../util/transcript"
 import { UI } from "@/cli/ui.ts"
 import { useTuiConfig } from "../../context/tui-config"
@@ -356,6 +357,56 @@ export function Session() {
   }
 
   const command = useCommandDialog()
+
+  function last() {
+    const revertID = session()?.revert?.messageID
+    const msg = messages().findLast((msg) => msg.role === "assistant" && (!revertID || msg.id < revertID))
+    if (!msg) return
+    const parts = sync.data.part[msg.id] ?? []
+    return parts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n")
+      .trim()
+  }
+
+  async function save(dialog: DialogContext, args?: string, quit?: boolean) {
+    const text = last()
+    if (!text) {
+      toast.show({
+        message: "No text content found in last assistant message",
+        variant: "error",
+      })
+      dialog.clear()
+      return
+    }
+
+    let name = args?.trim() ?? ""
+    if ((name.startsWith('"') && name.endsWith('"')) || (name.startsWith("'") && name.endsWith("'"))) {
+      name = name.slice(1, -1)
+    }
+    if (!name) {
+      name =
+        (
+          await DialogPrompt.show(dialog, quit ? "Save and quit" : "Save last response", {
+            placeholder: "filename.md",
+          })
+        )?.trim() ?? ""
+    }
+    dialog.clear()
+    if (!name) return
+
+    const file = path.isAbsolute(name) ? name : path.join(process.cwd(), name)
+    await Filesystem.write(file, text)
+      .then(async () => {
+        toast.show({ message: `Saved last response to ${name}`, variant: "success" })
+        if (quit) await exit()
+      })
+      .catch(() => {
+        toast.show({ message: `Failed to save to ${name}`, variant: "error" })
+      })
+  }
+
   command.register(() => [
     {
       title: session()?.share?.url ? "Copy share link" : "Share session",
@@ -831,6 +882,28 @@ export function Session() {
           .then(() => toast.show({ message: "Message copied to clipboard!", variant: "success" }))
           .catch(() => toast.show({ message: "Failed to copy to clipboard", variant: "error" }))
         dialog.clear()
+      },
+    },
+    {
+      title: "Save last response",
+      value: "messages.save",
+      category: "Session",
+      slash: {
+        name: "save",
+      },
+      onSelect: (dialog, args) => {
+        save(dialog, args)
+      },
+    },
+    {
+      title: "Save last response and quit",
+      value: "messages.save_and_quit",
+      category: "Session",
+      slash: {
+        name: "save_and_quit",
+      },
+      onSelect: (dialog, args) => {
+        save(dialog, args, true)
       },
     },
     {

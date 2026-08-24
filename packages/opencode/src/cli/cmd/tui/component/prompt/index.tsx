@@ -535,6 +535,25 @@ export function Prompt(props: PromptProps) {
       exit()
       return
     }
+    if (trimmed.startsWith("/")) {
+      const [head, ...rest] = trimmed.split(" ")
+      const name = head.slice(1)
+      const args = rest.join(" ").trim()
+      if (command.triggerSlash(name, args)) {
+        history.append({
+          ...store.prompt,
+          mode: store.mode,
+        })
+        input.extmarks.clear()
+        setStore("prompt", {
+          input: "",
+          parts: [],
+        })
+        setStore("extmarkToPartIndex", new Map())
+        input.clear()
+        return
+      }
+    }
     const selectedModel = local.model.current()
     if (!selectedModel) {
       promptModelWarning()
