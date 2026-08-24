@@ -3,6 +3,7 @@ import { Log } from "../util/log"
 import { Instance } from "../project/instance"
 import { BusEvent } from "./bus-event"
 import { GlobalBus } from "./global"
+import { Journal } from "../session/journal"
 
 export namespace Bus {
   const log = Log.create({ service: "bus" })
@@ -46,6 +47,7 @@ export namespace Bus {
       type: def.type,
       properties,
     }
+    Journal.write(payload)
     log.info("publishing", {
       type: def.type,
     })
