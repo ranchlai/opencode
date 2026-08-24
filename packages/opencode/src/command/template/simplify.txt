@@ -1,0 +1,115 @@
+You are simplifying code. Review changed files for reuse, quality, efficiency, and altitude, then apply high-confidence cleanup. This is not a bug hunt — use /review for correctness.
+
+---
+
+Input: $ARGUMENTS
+
+---
+
+## Scope
+
+Pick the smallest correct target from the input:
+
+1. **No arguments (default)**: uncommitted work
+   - `git status --short` for untracked files
+   - `git diff` for unstaged changes
+   - `git diff --cached` for staged changes
+   - If both diffs are empty, use `git diff HEAD` then merge-base vs the default branch
+2. **Path**: review only that file or directory
+3. **Commit hash**: `git show $ARGUMENTS`
+4. **Branch name**: `git diff $ARGUMENTS...HEAD`
+5. **PR URL or number**: `gh pr diff $ARGUMENTS`
+
+If there is nothing to simplify, say so and stop.
+
+Preserve unrelated user changes. Do not widen the scope unless needed to understand existing patterns.
+
+Read AGENTS.md and nearby conventions for the touched area before judging style.
+
+---
+
+## Reviewers
+
+Launch four read-only `task` calls in one message, all with `subagent_type: explore`. Pass each the full combined diff (and untracked file contents). They must not edit, format, commit, or run mutating commands.
+
+If the diff is tiny (about one concern, under ~20 lines), skip the fan-out and review inline using the same four angles.
+
+If `task` is unavailable, run all four angles yourself. Say that in the summary.
+
+Each reviewer returns concise findings only: file, line or symbol, problem, recommended fix, confidence (high/medium/low). Skip nits. Do not hunt for correctness bugs; if one is obvious, mention it separately and do not fold it into cleanup.
+
+### 1. Reuse
+
+Search the wider codebase (helpers, shared modules, adjacent files) for:
+
+- New functions that duplicate existing ones — name the existing function
+- Inline logic an existing utility already covers (string/path handling, env checks, type guards)
+- Near-duplicate blocks that should call a shared helper
+
+Only flag reuse that captures a non-trivial pattern. Wrapping `n * n` in a helper is not reuse.
+
+### 2. Quality
+
+- Low-information comments that restate the code
+- One-off helpers used once that are clearer inlined
+- Unnecessary null/undefined states that force defensive checks
+- Broad try/catch that swallows errors
+- Wrappers, config objects, or interfaces with no real reuse
+- `any`, casts, or non-null assertions that hide invariants
+- Derived state stored alongside source state
+- Dead branches, unused parameters, leftover compatibility paths
+- Parameter sprawl, copy-paste with slight variation, leaky abstractions, stringly-typed values
+- Deep nesting that early returns or a lookup would flatten
+
+### 3. Efficiency
+
+No premature optimization. Flag only real waste:
+
+- Blocking work on hot paths
+- Repeated expensive work that could be reused
+- Busy waits / polling instead of events or backoff
+- String concatenation in loops
+- N+1 I/O (db, fs, network, RPC)
+- Chatty logs or metrics in tight loops
+- Independent work run sequentially
+- Existence pre-checks instead of operate-and-handle-error
+- Unbounded growth, missing cleanup, listener leaks
+- Reading a whole file when a slice is enough
+
+### 4. Altitude
+
+Is the change at the right depth, or a band-aid?
+
+- Special case bolted onto shared infrastructure for one caller
+- Symptom patched at one call site while siblings keep the same flaw
+- Wrapper or flag routing around a broken default instead of fixing the default
+- Logic in a caller/leaf that belongs in the shared layer — or the reverse
+
+Read surrounding code and `git blame` first. Compat shims, staged migrations, and vendored-code isolation are often intentional. If the deeper fix is large, flag it — do not rebuild shared infrastructure in this pass.
+
+---
+
+## Apply
+
+Aggregate findings. Drop weak, duplicate, or convention-conflicting ones.
+
+Apply only high-confidence, behavior-preserving edits in the reviewed files (plus the minimum adjacent change a fix needs). You apply the edits; reviewers do not.
+
+Skip anything that needs product judgment or a much larger refactor. Do not stage, commit, or push.
+
+After edits, run the most relevant lightweight check for the touched files when practical (targeted tests, typecheck, lint). If a fix breaks a check, revert that fix.
+
+---
+
+## Summary
+
+Report:
+
+- What was reviewed
+- What you fixed (grouped by reuse / quality / efficiency / altitude)
+- What you skipped and recommend
+- Whether checks ran
+
+If the code is already clean, say that instead of manufacturing edits.
+
+Do not ask the user mid-run. When two fixes are mutually exclusive and principles do not pick a winner, apply neither and list them as skipped.

@@ -243,6 +243,20 @@ Share current session. [Learn more](/docs/share).
 
 ---
 
+### simplify
+
+Review changed code for reuse, quality, efficiency, and altitude, then apply high-confidence cleanup. Does not hunt for correctness bugs — use `/review` for that.
+
+```bash frame="none"
+/simplify
+/simplify src/foo.ts
+/simplify 123
+```
+
+With no arguments, this uses uncommitted changes. Pass a path, commit, branch, or PR to narrow the target.
+
+---
+
 ### themes
 
 List available themes.

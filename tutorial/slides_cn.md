@@ -28,7 +28,7 @@ lang: zh-CN
 4. **Superpowers** — 设计 → 计划 → TDD
 5. **Agent 循环** — 一轮一轮直到停下
 6. **Ralph Loop / `/loop`** — 无人值守，直到完成
-7. **并行** — `/team`
+7. **并行** — git worktree、`/team`
 8. **运维** — 非流式、CLI、serve
 9. **什么时候用什么**
 
@@ -341,10 +341,11 @@ Let's add max_steps to the Python LLM planner so tool calls cannot loop forever.
 # Superpowers — 默认功能路径
 
 ```text
-brainstorming     → spec（你批准）
-writing-plans     → plan 文件
-每个任务做 TDD    → 红 → 绿 → 重构（+ review）
-收尾分支
+brainstorming          → spec（你批准）
+using-git-worktrees    → 隔离分支（独立 worktree）
+writing-plans          → plan 文件
+每个任务做 TDD         → 红 → 绿 → 重构（+ review）
+finishing-a-development-branch
 ```
 
 | 你说 | 先走哪个 skill |
@@ -625,6 +626,53 @@ Agent 必须以 **`LOOP_DONE`** 或 **`LOOP_BLOCKED`** 结束。
 
 <!-- Slide 31 -->
 
+# Git worktree — 并行开发的基础
+
+一个仓库**多个工作目录**，每个一条独立分支。不用 `git stash` 来回切，不用反复 clone。
+
+```bash
+git worktree add ../proj-feature-a  feature-a
+git worktree add ../proj-feature-b  -b feature-b
+# 两个目录各自 checkout、跑测试、改代码，互不干扰
+```
+
+| 概念 | 说明 |
+| --- | --- |
+| 主工作树 | 你 clone 出来的那个目录 |
+| 链接工作树 | `git worktree add` 建出来的，共享 `.git` 对象库 |
+| 分支约束 | 每条分支同一时刻只能被一个工作树检出 |
+
+**为什么并行离不开它：** 多个 Agent（或人）同时改同一仓库时，共用一个工作目录会互相覆盖、`stash` 打架。worktree 给每个 worker 一份独立磁盘副本，分支隔离、改动隔离，最后再 merge。
+
+---
+
+<!-- Slide 32 -->
+
+# Worktree 在 OpenCode 里的用法
+
+OpenCode 内置 `worktree` 工具，`/team` 和 Superpowers 都靠它做隔离。
+
+```text
+存储位置：~/.local/share/opencode/worktree/<project-id>/<name>/
+分支命名：opencode/<name>      （自动生成，如 opencode/brave-otter）
+```
+
+| 入口 | 行为 |
+| --- | --- |
+| `worktree` 工具 | 建一个新工作树 + 新分支；可附带 `startCommand` 跑项目启动脚本 |
+| `worktree` `remove` | 删工作树并删分支 |
+| `worktree` `reset` | `reset --hard` 到默认分支 + `clean -ffdx` + 子模块重置 |
+| `/team` `spawn` | 写者默认 `worktree: true`，各自一条分支；调研用 `explore` 关掉 |
+| `/team` `merge` | 把队友的 worktree 分支合回主工作树 |
+| `/team` `cleanup` | 解散队伍、删掉所有 worktree |
+| Superpowers `using-git-worktrees` | brainstorm 后自动询问是否开 worktree 隔离分支 |
+
+**注意：** 只支持 git 仓库；不能在 worktree 里再套 worktree；`/undo` 基于 git，worktree 里照样能用。
+
+---
+
+<!-- Slide 33 -->
+
 # `/team` — 并行专家
 
 一个 **lead** 会话 + 具名队友 + 共享任务板。
@@ -645,7 +693,7 @@ Lead：建队 → 拆任务 → 派生 2–3 个专家 → 协调 → merge → 
 
 ---
 
-<!-- Slide 32 -->
+<!-- Slide 34 -->
 
 # `/team` — 派生方式
 
@@ -668,7 +716,7 @@ team({ action: "status" })
 
 ---
 
-<!-- Slide 33 -->
+<!-- Slide 35 -->
 
 # `/team` — 看板、merge、cleanup
 
@@ -691,7 +739,7 @@ team({ action: "cleanup" })
 
 ---
 
-<!-- Slide 34 -->
+<!-- Slide 36 -->
 
 # 非流式 LLM 调用
 
@@ -713,7 +761,7 @@ team({ action: "cleanup" })
 
 ---
 
-<!-- Slide 35 -->
+<!-- Slide 37 -->
 
 # CLI、服务、attach
 
@@ -734,7 +782,7 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 ---
 
-<!-- Slide 36 -->
+<!-- Slide 38 -->
 
 # 配方：无人值守做一个功能
 
@@ -748,7 +796,7 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 ---
 
-<!-- Slide 37 -->
+<!-- Slide 39 -->
 
 # 什么时候用什么
 
@@ -761,6 +809,7 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 | 模型不停调工具 | **会话循环**（自动） |
 | 几小时、一个目标 | **Ralph Loop** → `/loop` + verify |
 | 盯着它干 | **HITL**；信得过了再 AFK |
+| 多个 Agent 同时改仓库 | **git worktree**（`/team` 自动开） |
 | 调研 ∥ 实现 | **`/team`**（2–3 人） |
 | 每天同一句提示 | 自定义 **`/command`** |
 | 领域流程 | **Skill** |
@@ -770,7 +819,7 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 ---
 
-<!-- Slide 38 -->
+<!-- Slide 40 -->
 
 # 踩坑
 
@@ -781,6 +830,8 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 | Agent 回一句就「停了」 | 正常 — `finish ≠ tool-calls` 时会话循环退出 |
 | Agent 不停调工具 | `agent.steps` 上限；相同调用 3 次触发 doom_loop |
 | 没有 `/team` | `OPENCODE_EXPERIMENTAL_TEAM_MODE=1` |
+| 建不了 worktree | 不是 git 仓库；`worktree` 工具只支持 git |
+| worktree 残留 / 分支没删 | 用 `worktree` `remove`，别手动删目录 |
 | Loop 说 “done” 但测试失败 | 加上 `loop.verify` |
 | `/undo` 不回滚文件 | 不是 git 仓库 |
 | 上下文爆炸 | MCP 开太多 |
@@ -789,7 +840,7 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 
 ---
 
-<!-- Slide 39 -->
+<!-- Slide 41 -->
 
 # 回顾
 
@@ -800,12 +851,13 @@ opencode run --attach http://127.0.0.1:4096 "Summarize git diff"
 - **Ralph Loop：** 拦截退出直到 `LOOP_DONE`（先 HITL，再 AFK）
 - **会话循环：** LLM → 工具 → compact → 再来，直到 `finish ≠ tool-calls`
 - **无人值守：** 这里的 `/loop` 就是 Ralph — nudge + `loop.verify` + 预算
+- **并行基础：** git worktree — 一仓库多工作树，分支隔离；`/team` 和 Superpowers 都靠它
 - **并行：** `/team` — lead、2–3 专家、worktree、merge、cleanup
 - **本 fork：** `disable_stream`、loop、team、Cursor 规则
 
 ---
 
-<!-- Slide 40 -->
+<!-- Slide 42 -->
 
 # 资料（本仓库）
 
