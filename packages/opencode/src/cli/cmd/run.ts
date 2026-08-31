@@ -331,7 +331,9 @@ export const RunCommand = cmd({
           process.exit(1)
         }
 
-        const mime = (await Filesystem.isDir(resolvedPath)) ? "application/x-directory" : "text/plain"
+        const mime = (await Filesystem.isDir(resolvedPath))
+          ? "application/x-directory"
+          : Filesystem.mimeType(resolvedPath)
 
         files.push({
           type: "file",

@@ -1,0 +1,4 @@
+id,title,description
+BUG-1,Null deref in session header,"Session header crashes when the repeat label is missing. Repro: open a session with no /repeat queue."
+BUG-2,CSV quotes dropped,"Quoted commas in bug titles are split into extra columns. Example title: crash, on save."
+BUG-3,Worktree not cleaned,"hard-repeat --rm removes the directory but leaves branch opencode/repeat-* in git."

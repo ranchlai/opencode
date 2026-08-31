@@ -1,6 +1,7 @@
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
 import { RunCommand } from "./cli/cmd/run"
+import { HardRepeatCommand } from "./cli/cmd/hard-repeat"
 import { GenerateCommand } from "./cli/cmd/generate"
 import { Log } from "./util/log"
 import { ConsoleCommand } from "./cli/cmd/account"
@@ -128,6 +129,7 @@ let cli = yargs(hideBin(process.argv))
   .command(TuiThreadCommand)
   .command(AttachCommand)
   .command(RunCommand)
+  .command(HardRepeatCommand)
   .command(GenerateCommand)
   .command(DebugCommand)
   .command(ConsoleCommand)

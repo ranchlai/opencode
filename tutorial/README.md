@@ -5,10 +5,11 @@ This is a hands-on guide to **this checkout** of OpenCode — not the public `op
 - **Non-streaming LLM calls** (`experimental.disable_stream`) for providers that mishandle SSE
 - **`/loop`** for long-running goals that survive context compaction
 - **`/repeat`** for many similar jobs with different inputs, each in a fresh child session
+- **`hard-repeat`** CLI to loop an Excel/CSV list: one `opencode run` per row, each in its own git worktree
 - **Team mode** (`/team`) so one lead can spawn specialists in parallel
 - **Cursor `.mdc` project rules**, loaded the same way Cursor loads them
 
-By the end you will have built the CLI from source, logged into a provider, taught OpenCode a project, and used the TUI, `/loop`, `/repeat`, and `/team`.
+By the end you will have built the CLI from source, logged into a provider, taught OpenCode a project, and used the TUI, `/loop`, `/repeat`, `hard-repeat`, and `/team`.
 
 ---
 
@@ -423,7 +424,35 @@ Inline `items` in the tool are capped at 50. Larger queues must be a file or glo
 
 The header badge shows progress, for example `repeat 47/1000 · 3 fail`.
 
-### 7.4 `/team` — parallel specialists
+`/repeat` still shares one repo. File edits from item N can collide with item N+1.
+
+### 7.4 `hard-repeat` — one worktree per row
+
+Use this when each item must be isolated on disk (a spreadsheet of bugs, each becoming its own branch). This is an **outer process loop**, not a slash command.
+
+```bash
+opencode hard-repeat bugs.xlsx "Fix this bug. Keep the change scoped.
+
+$ITEM"
+
+# csv / jsonl work too
+opencode hard-repeat bugs.csv --column title --dry-run
+opencode hard-repeat bugs.xlsx -j 2 --max 10 --rm
+```
+
+`$ITEM` is the bug/title/description column (or `--column`). `$ID`, `$TITLE`, and other `$COLUMN` placeholders map to header names. `$ROW` is the 1-based index.
+
+Screenshots pasted or inserted on a row (png/jpeg/gif/webp/bmp) are extracted and attached to that item's `opencode run`. EMF/WMF Windows metafiles are skipped. Header-row logos are ignored.
+
+Each row:
+
+1. `git worktree add` on a new `opencode/repeat-…` branch
+2. `opencode run --dir <worktree>` with the filled prompt
+3. On failure, the worktree is kept so you can inspect it. `--rm` deletes it after success.
+
+`--dry-run` prints prompts and names without creating worktrees. Sample list: `tutorial/bugs.xlsx` (same rows in `tutorial/bugs.csv`).
+
+### 7.5 `/team` — parallel specialists
 
 Team mode is **off by default**. Enable it:
 
@@ -537,7 +566,8 @@ Do these in order on a throwaway clone of a repo you know.
 5. **Rules** — add a `.cursor/rules` glob rule and a line in `AGENTS.md`; ask the agent to follow them.
 6. **Loop** — `/loop 20m` with `loop.verify` pointed at a real test command.
 7. **Repeat** — `/repeat` on a glob of files (write the list to JSONL; do not paste it).
-8. **Team** — `OPENCODE_EXPERIMENTAL_TEAM_MODE=1`, then `/team` on a task that splits into research + implementation.
+8. **Hard-repeat** — `opencode hard-repeat bugs.csv --dry-run`, then a real run on a throwaway clone.
+9. **Team** — `OPENCODE_EXPERIMENTAL_TEAM_MODE=1`, then `/team` on a task that splits into research + implementation.
 
 ---
 

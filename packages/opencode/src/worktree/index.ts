@@ -431,6 +431,23 @@ export namespace Worktree {
     return info
   })
 
+  /** Create a worktree and wait until files are checked out. */
+  export const open = fn(CreateInput.optional(), async (input) => {
+    const info = await makeWorktreeInfo(input?.name)
+    const created = await git(["worktree", "add", "--no-checkout", "-b", info.branch, info.directory], {
+      cwd: Instance.worktree,
+    })
+    if (created.exitCode !== 0) {
+      throw new CreateFailedError({ message: errorText(created) || "Failed to create git worktree" })
+    }
+    await Project.addSandbox(Instance.project.id, info.directory).catch(() => undefined)
+    const populated = await git(["reset", "--hard"], { cwd: info.directory })
+    if (populated.exitCode !== 0) {
+      throw new CreateFailedError({ message: errorText(populated) || "Failed to populate worktree" })
+    }
+    return info
+  })
+
   export const remove = fn(RemoveInput, async (input) => {
     if (Instance.project.vcs !== "git") {
       throw new NotGitError({ message: "Worktrees are only supported for git projects" })
