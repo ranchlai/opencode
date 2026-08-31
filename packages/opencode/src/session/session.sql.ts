@@ -113,6 +113,37 @@ export const LoopTable = sqliteTable("session_loop", {
   ...Timestamps,
 })
 
+export const RepeatTable = sqliteTable("session_repeat", {
+  session_id: text().$type<SessionID>().primaryKey(),
+  goal: text().notNull(),
+  template: text(),
+  items_path: text(),
+  phase: text().notNull(),
+  cursor: integer().notNull(),
+  rounds: integer().notNull(),
+  started: integer().notNull(),
+  deadline: integer(),
+  max: integer(),
+  ...Timestamps,
+})
+
+export const RepeatItemTable = sqliteTable(
+  "session_repeat_item",
+  {
+    session_id: text().$type<SessionID>().notNull(),
+    position: integer().notNull(),
+    input: text().notNull(),
+    status: text().notNull(),
+    summary: text(),
+    child_id: text().$type<SessionID>(),
+    ...Timestamps,
+  },
+  (table) => [
+    primaryKey({ columns: [table.session_id, table.position] }),
+    index("repeat_item_session_status_idx").on(table.session_id, table.status),
+  ],
+)
+
 export const MemoryTable = sqliteTable(
   "memory",
   {

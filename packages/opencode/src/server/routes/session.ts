@@ -10,6 +10,7 @@ import { SessionCompaction } from "../../session/compaction"
 import { SessionRevert } from "../../session/revert"
 import { SessionStatus } from "@/session/status"
 import { SessionSummary } from "@/session/summary"
+import { SessionRepeat } from "../../session/repeat"
 import { Todo } from "../../session/todo"
 import { Agent } from "../../agent/agent"
 import { Snapshot } from "@/snapshot"
@@ -90,6 +91,27 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const result = SessionStatus.list()
         return c.json(result)
+      },
+    )
+    .get(
+      "/repeat",
+      describeRoute({
+        summary: "List active repeats",
+        description: "List active /repeat queues for the current project.",
+        operationId: "session.repeat.list",
+        responses: {
+          200: {
+            description: "Active repeats",
+            content: {
+              "application/json": {
+                schema: resolver(SessionRepeat.Snap.array()),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(SessionRepeat.list())
       },
     )
     .get(
@@ -183,6 +205,35 @@ export const SessionRoutes = lazy(() =>
         const sessionID = c.req.valid("param").sessionID
         const todos = await Todo.get(sessionID)
         return c.json(todos)
+      },
+    )
+    .get(
+      "/:sessionID/repeat",
+      describeRoute({
+        summary: "Get session repeat",
+        description: "Get the /repeat queue snapshot for a session, if any.",
+        operationId: "session.repeat.get",
+        responses: {
+          200: {
+            description: "Repeat snapshot or null",
+            content: {
+              "application/json": {
+                schema: resolver(SessionRepeat.Snap.nullable()),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: SessionID.zod,
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        return c.json(SessionRepeat.snap(sessionID) ?? null)
       },
     )
     .post(

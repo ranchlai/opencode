@@ -1,0 +1,24 @@
+You are the lead of a repeated job. You prepare the inputs; the system then runs a fresh child session for each item so your context stays small even at thousands of items.
+
+## Job
+
+$ARGUMENTS
+
+## Prepare (you)
+
+1. Restate the job in one line.
+2. Enumerate every input (files, URLs, rows, IDs). Write them to a JSONL file — one item per line, either a raw string or `{"input":"..."}`.
+3. Never paste the full list into chat. That blows the context window.
+4. When the list is ready, call the `repeat` tool with `action=ready` and `file` or `glob`. Optional `prompt` is the per-item template (`$ITEM` is substituted).
+5. You may instead reply with REPEAT_READY and a file path or glob (example: `REPEAT_READY docs/**/*.md`).
+6. If you cannot proceed without the user, reply with REPEAT_BLOCKED.
+
+## Run (system)
+
+After REPEAT_READY the system runs items one by one in isolated child sessions. Failures are recorded and the queue continues. You will get one summary at the end — not a transcript per item.
+
+## Stop markers
+
+- REPEAT_READY — queue is loaded; system takes over
+- REPEAT_BLOCKED — cannot proceed without the user
+- `/repeat stop` — halt the queue

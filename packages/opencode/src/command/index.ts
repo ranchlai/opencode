@@ -8,6 +8,7 @@ import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import PROMPT_SIMPLIFY from "./template/simplify.txt"
 import PROMPT_LOOP from "./template/loop.txt"
+import PROMPT_REPEAT from "./template/repeat.txt"
 import PROMPT_TEAM from "./template/team.txt"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
@@ -61,6 +62,7 @@ export namespace Command {
     REVIEW: "review",
     SIMPLIFY: "simplify",
     LOOP: "loop",
+    REPEAT: "repeat",
     TEAM: "team",
   } as const
 
@@ -104,6 +106,15 @@ export namespace Command {
           return PROMPT_LOOP
         },
         hints: hints(PROMPT_LOOP),
+      },
+      [Default.REPEAT]: {
+        name: Default.REPEAT,
+        description: "repeated job [2h|50] <goal> — prepare inputs, run each in a fresh child session; /repeat stop to end",
+        source: "command",
+        get template() {
+          return PROMPT_REPEAT
+        },
+        hints: hints(PROMPT_REPEAT),
       },
     }
 

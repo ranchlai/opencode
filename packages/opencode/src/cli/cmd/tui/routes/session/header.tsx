@@ -95,6 +95,11 @@ export function Header() {
     return sync.data.team[route.sessionID]?.label
   })
 
+  const repeat = createMemo(() => {
+    const id = session()?.parentID ?? route.sessionID
+    return sync.data.repeat[id]?.label
+  })
+
   const { theme } = useTheme()
   const keybind = useKeybind()
   const command = useCommandDialog()
@@ -126,6 +131,7 @@ export function Header() {
                     </text>
                     <WorkspaceInfo workspace={workspace} />
                     <TeamInfo label={team} />
+                    <TeamInfo label={repeat} />
                   </box>
                 ) : (
                   <box flexDirection="column">
@@ -133,6 +139,7 @@ export function Header() {
                       <b>Subagent session</b>
                     </text>
                     <TeamInfo label={team} />
+                    <TeamInfo label={repeat} />
                   </box>
                 )}
 
@@ -179,11 +186,13 @@ export function Header() {
                   <Title session={session} />
                   <WorkspaceInfo workspace={workspace} />
                   <TeamInfo label={team} />
+                  <TeamInfo label={repeat} />
                 </box>
               ) : (
                 <box flexDirection="column">
                   <Title session={session} />
                   <TeamInfo label={team} />
+                  <TeamInfo label={repeat} />
                 </box>
               )}
               <ContextInfo context={context} cost={cost} />

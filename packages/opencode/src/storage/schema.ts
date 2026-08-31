@@ -1,6 +1,6 @@
 export { AccountTable, AccountStateTable, ControlAccountTable } from "../account/account.sql"
 export { ProjectTable } from "../project/project.sql"
-export { SessionTable, MessageTable, PartTable, TodoTable, PermissionTable, LoopTable, MemoryTable } from "../session/session.sql"
+export { SessionTable, MessageTable, PartTable, TodoTable, PermissionTable, LoopTable, RepeatTable, RepeatItemTable, MemoryTable } from "../session/session.sql"
 export { SessionShareTable } from "../share/share.sql"
 export { WorkspaceTable } from "../control-plane/workspace.sql"
 export { TeamTable, TeamMemberTable, TeamTaskTable } from "../team/team.sql"

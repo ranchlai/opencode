@@ -1,0 +1,10 @@
+Queue a repeated job so each item runs in a fresh child session. The parent context stays small even at thousands of items.
+
+Never pass thousands of items inline — that blows the context window. Write a JSONL file or pass a glob.
+
+Actions:
+- ready: load the queue and start. Requires `file` (JSONL or newline list), `glob`, or `items` (max 50). Optional `prompt` is the per-item template; `$ITEM` / `$INPUT` are substituted.
+- status: counts only (pending/ok/fail/total) plus up to 20 failures. Does not dump the full list.
+- stop: halt the queue.
+
+After ready, do not call this tool per item. The system runs items one by one. Failures are recorded; the queue continues.

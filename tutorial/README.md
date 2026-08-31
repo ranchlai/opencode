@@ -4,10 +4,11 @@ This is a hands-on guide to **this checkout** of OpenCode — not the public `op
 
 - **Non-streaming LLM calls** (`experimental.disable_stream`) for providers that mishandle SSE
 - **`/loop`** for long-running goals that survive context compaction
+- **`/repeat`** for many similar jobs with different inputs, each in a fresh child session
 - **Team mode** (`/team`) so one lead can spawn specialists in parallel
 - **Cursor `.mdc` project rules**, loaded the same way Cursor loads them
 
-By the end you will have built the CLI from source, logged into a provider, taught OpenCode a project, and used the TUI, `/loop`, and `/team`.
+By the end you will have built the CLI from source, logged into a provider, taught OpenCode a project, and used the TUI, `/loop`, `/repeat`, and `/team`.
 
 ---
 
@@ -393,7 +394,36 @@ Each command runs from the project directory. If any exits non-zero, `LOOP_DONE`
 
 Give `/loop` a **concrete done condition**. Vague goals wander until the budget expires.
 
-### 7.3 `/team` — parallel specialists
+### 7.3 `/repeat` — many items, isolated chats
+
+Use this when the same job must run on hundreds or thousands of inputs. The parent agent **prepares** the list; the system then runs **one fresh child session per item** so the parent context never fills with transcripts.
+
+```text
+/repeat translate every markdown file in docs/ to Chinese
+/repeat 2h lint-fix packages/*
+/repeat stop
+```
+
+Budgets are optional (same tokens as `/loop`): `2h` is a deadline; `50` caps how many items run.
+
+**Prepare** — the parent LLM:
+
+1. Discovers inputs (glob, grep, a script).
+2. Writes them to a JSONL file (one item per line, or `{"input":"..."}`). **Do not paste the list into chat.**
+3. Calls the `repeat` tool with `action=ready` and `file` or `glob`, or replies `REPEAT_READY docs/**/*.md`.
+
+Inline `items` in the tool are capped at 50. Larger queues must be a file or glob.
+
+**Run** — the system, not the parent LLM:
+
+- Items run **one by one** in isolated child sessions.
+- A failure is recorded; the queue **continues**.
+- Successful children are archived so the sidebar does not grow to thousands of tabs. Failed children stay inspectable.
+- You get **one** summary at the end (`N ok, M failed`), not a dump of every item.
+
+The header badge shows progress, for example `repeat 47/1000 · 3 fail`.
+
+### 7.4 `/team` — parallel specialists
 
 Team mode is **off by default**. Enable it:
 
@@ -506,7 +536,8 @@ Do these in order on a throwaway clone of a repo you know.
 4. **Undo** — `/undo` and confirm the files reverted.
 5. **Rules** — add a `.cursor/rules` glob rule and a line in `AGENTS.md`; ask the agent to follow them.
 6. **Loop** — `/loop 20m` with `loop.verify` pointed at a real test command.
-7. **Team** — `OPENCODE_EXPERIMENTAL_TEAM_MODE=1`, then `/team` on a task that splits into research + implementation.
+7. **Repeat** — `/repeat` on a glob of files (write the list to JSONL; do not paste it).
+8. **Team** — `OPENCODE_EXPERIMENTAL_TEAM_MODE=1`, then `/team` on a task that splits into research + implementation.
 
 ---
 

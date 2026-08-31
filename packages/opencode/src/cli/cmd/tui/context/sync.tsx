@@ -31,8 +31,10 @@ import type { Path } from "@opencode-ai/sdk"
 import type { Workspace } from "@opencode-ai/sdk/v2"
 import { Flag } from "@/flag/flag"
 import type { Team } from "@/team"
+import type { SessionRepeat } from "@/session/repeat"
 
 type TeamSnapshot = Team.Snapshot
+type RepeatSnap = SessionRepeat.Snap
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -82,6 +84,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       team: {
         [sessionID: string]: TeamSnapshot
       }
+      repeat: {
+        [sessionID: string]: RepeatSnap
+      }
     }>({
       provider_next: {
         all: [],
@@ -111,6 +116,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       path: { state: "", config: "", worktree: "", directory: "" },
       workspaceList: [],
       team: {},
+      repeat: {},
     })
 
     const sdk = useSDK()
@@ -147,6 +153,18 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       for (const snap of list) applyTeam(snap)
     }
 
+    async function syncRepeats() {
+      const headers: Record<string, string> = {}
+      if (sdk.directory) headers["x-opencode-directory"] = sdk.directory
+      const res = await sdk.fetch(new URL("/session/repeat", sdk.url), { headers }).catch(() => undefined)
+      if (!res?.ok) return
+      const list = (await res.json().catch(() => [])) as RepeatSnap[]
+      setStore(
+        "repeat",
+        reconcile(Object.fromEntries(list.map((item) => [item.sessionID, item]))),
+      )
+    }
+
     async function syncWorkspaces() {
       const result = await sdk.client.experimental.workspace.list().catch(() => undefined)
       if (!result?.data) return
@@ -163,6 +181,21 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
         const snap = (event as unknown as { properties?: { snapshot?: TeamSnapshot } }).properties?.snapshot
         if (snap) applyTeam(snap)
+        return
+      }
+      if (type === "session.repeat.updated") {
+        const snap = (event as unknown as { properties: RepeatSnap }).properties
+        setStore("repeat", snap.sessionID, reconcile(snap))
+        return
+      }
+      if (type === "session.repeat.cleared") {
+        const sessionID = (event as unknown as { properties: { sessionID: string } }).properties.sessionID
+        setStore(
+          "repeat",
+          produce((draft) => {
+            delete draft[sessionID]
+          }),
+        )
         return
       }
       switch (event.type) {
@@ -474,6 +507,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.path.get().then((x) => setStore("path", reconcile(x.data!))),
             syncWorkspaces(),
             syncTeams(),
+            syncRepeats(),
           ]).then(() => {
             setStore("status", "complete")
           })

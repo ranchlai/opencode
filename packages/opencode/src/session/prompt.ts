@@ -14,6 +14,7 @@ import { ModelID, ProviderID } from "../provider/schema"
 import { type Tool as AITool, tool, jsonSchema, type ToolCallOptions, asSchema } from "ai"
 import { SessionCompaction } from "./compaction"
 import { SessionLoop } from "./loop"
+import { SessionRepeat } from "./repeat"
 import { Instance } from "../project/instance"
 import { Bus } from "../bus"
 import { ProviderTransform } from "../provider/transform"
@@ -260,6 +261,7 @@ export namespace SessionPrompt {
   export function cancel(sessionID: SessionID) {
     log.info("cancel", { sessionID })
     SessionLoop.stop(sessionID)
+    SessionRepeat.stop(sessionID)
     const s = state()
     const match = s[sessionID]
     if (!match) {
@@ -270,6 +272,72 @@ export namespace SessionPrompt {
     delete s[sessionID]
     SessionStatus.set(sessionID, { type: "idle" })
     return
+  }
+
+  async function note(sessionID: SessionID, user: MessageV2.User, text: string) {
+    const msg = await Session.updateMessage({
+      id: MessageID.ascending(),
+      role: "user",
+      sessionID,
+      time: { created: Date.now() },
+      agent: user.agent,
+      model: user.model,
+    })
+    await Session.updatePart({
+      id: PartID.ascending(),
+      messageID: msg.id,
+      sessionID,
+      type: "text",
+      synthetic: true,
+      text,
+      time: {
+        start: Date.now(),
+        end: Date.now(),
+      },
+    })
+    return msg
+  }
+
+  async function seal(sessionID: SessionID, user: MessageV2.User, text: string) {
+    const parent = await note(sessionID, user, "Repeat queue finished.")
+    const assistant = await Session.updateMessage({
+      id: MessageID.ascending(),
+      sessionID,
+      parentID: parent.id,
+      mode: user.agent,
+      agent: user.agent,
+      cost: 0,
+      path: {
+        cwd: Instance.directory,
+        root: Instance.worktree,
+      },
+      time: {
+        created: Date.now(),
+        completed: Date.now(),
+      },
+      role: "assistant",
+      tokens: {
+        input: 0,
+        output: 0,
+        reasoning: 0,
+        cache: { read: 0, write: 0 },
+      },
+      modelID: user.model.modelID,
+      providerID: user.model.providerID,
+      finish: "stop",
+    })
+    await Session.updatePart({
+      id: PartID.ascending(),
+      messageID: assistant.id,
+      sessionID,
+      type: "text",
+      synthetic: true,
+      text,
+      time: {
+        start: Date.now(),
+        end: Date.now(),
+      },
+    })
   }
 
   export const LoopInput = z.object({
@@ -320,34 +388,27 @@ export namespace SessionPrompt {
       }
 
       if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
+      if (SessionRepeat.get(sessionID)?.phase === "running") {
+        const next = await SessionRepeat.runNext(sessionID, abort)
+        if (abort.aborted) break
+        if (next === "continue") continue
+        const text = SessionRepeat.report(sessionID)
+        if (text) await seal(sessionID, lastUser, text)
+        log.info("exiting loop", { sessionID, reason: "repeat" })
+        break
+      }
       if (
         lastAssistant?.finish &&
         !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
         lastUser.id < lastAssistant.id
       ) {
         const last = msgs.find((msg) => msg.info.id === lastAssistant.id)
-        const text = await SessionLoop.tick(sessionID, last)
+        const loopText = await SessionLoop.tick(sessionID, last)
+        const repeatText = await SessionRepeat.tick(sessionID, last)
+        if (SessionRepeat.get(sessionID)?.phase === "running") continue
+        const text = loopText ?? repeatText
         if (text) {
-          const continueMsg = await Session.updateMessage({
-            id: MessageID.ascending(),
-            role: "user",
-            sessionID,
-            time: { created: Date.now() },
-            agent: lastUser.agent,
-            model: lastUser.model,
-          })
-          await Session.updatePart({
-            id: PartID.ascending(),
-            messageID: continueMsg.id,
-            sessionID,
-            type: "text",
-            synthetic: true,
-            text,
-            time: {
-              start: Date.now(),
-              end: Date.now(),
-            },
-          })
+          await note(sessionID, lastUser, text)
           continue
         }
         log.info("exiting loop", { sessionID })
@@ -1790,7 +1851,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const agentName = command.agent ?? input.agent ?? (await Agent.defaultAgent())
 
     const loop = input.command === Command.Default.LOOP ? SessionLoop.parse(input.arguments) : undefined
-    const argumentText = loop?.kind === "start" ? loop.goal : input.arguments
+    const repeat = input.command === Command.Default.REPEAT ? SessionRepeat.parse(input.arguments) : undefined
+    const argumentText =
+      loop?.kind === "start" ? loop.goal : repeat?.kind === "start" ? repeat.goal : input.arguments
 
     const raw = argumentText.match(argsRegex) ?? []
     const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
@@ -1931,11 +1994,37 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       })
       return result
     }
+    if (repeat?.kind === "stop") {
+      SessionRepeat.stop(input.sessionID)
+      const result = (await prompt({
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        model: userModel,
+        agent: userAgent,
+        parts: [{ type: "text", text: "Repeat stopped." }],
+        variant: input.variant,
+        noReply: true,
+      })) as MessageV2.WithParts
+      Bus.publish(Command.Event.Executed, {
+        name: input.command,
+        sessionID: input.sessionID,
+        arguments: input.arguments,
+        messageID: result.info.id,
+      })
+      return result
+    }
     if (loop?.kind === "start") {
       await SessionLoop.start(input.sessionID, {
         goal: loop.goal,
         deadline: loop.deadline,
         max: loop.max,
+      })
+    }
+    if (repeat?.kind === "start") {
+      SessionRepeat.start(input.sessionID, {
+        goal: repeat.goal,
+        deadline: repeat.deadline,
+        max: repeat.max,
       })
     }
 
