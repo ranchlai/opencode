@@ -122,9 +122,150 @@ export namespace Team {
   }
 
   const WRITE = ["edit", "write", "bash", "apply_patch"] as const
+  const FILES = ["edit", "write", "apply_patch"] as const
+  const OFFICE = new Set(["explore", "researcher", "writer", "analyst", "plan"])
+  const HIDDEN = new Set(["compaction", "title", "summary"])
+  const EVERYONE = new Set(["*", "all", "everyone", "team", "broadcast"])
+  const ALIAS: Record<string, string> = {
+    scout: "explore",
+    explore: "explore",
+    search: "explore",
+    review: "explore",
+    reviewer: "explore",
+    research: "researcher",
+    researcher: "researcher",
+    write: "writer",
+    writer: "writer",
+    docs: "writer",
+    scribe: "writer",
+    data: "analyst",
+    analyst: "analyst",
+    analysis: "analyst",
+    build: "build",
+    builder: "build",
+    coder: "build",
+    code: "build",
+    impl: "build",
+    implement: "build",
+    work: "work",
+    worker: "work",
+    general: "general",
+    plan: "plan",
+  }
 
   function nid(prefix: string) {
     return `${prefix}_${Date.now().toString(16)}${randomBytes(6).toString("hex")}`
+  }
+
+  function slug(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/^@+/, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+  }
+
+  function roster(teamID: string) {
+    return members(teamID).map((m) => m.name)
+  }
+
+  function board(teamID: string) {
+    const list = tasks(teamID)
+    if (!list.length) return "(empty — add with action=tasks task_action=add, title=...)"
+    return list.map((t) => `- ${t.id} ${t.status}${t.owner ? ` @${t.owner}` : ""} ${t.title}`).join("\n")
+  }
+
+  function ticket(teamID: string, id: string) {
+    const list = tasks(teamID)
+    const want = id.trim()
+    if (!want) throw new Error(`task id required.\n${board(teamID)}`)
+    const exact = list.find((t) => t.id === want)
+    if (exact) return exact
+    const prefixes = want.length >= 6 ? list.filter((t) => t.id.startsWith(want)) : []
+    if (prefixes.length === 1) return prefixes[0]
+    const title = want.toLowerCase()
+    const titles = list.filter((t) => t.title.toLowerCase() === title)
+    if (titles.length === 1) return titles[0]
+    const fuzzy = list.filter((t) => t.title.toLowerCase().includes(title))
+    if (fuzzy.length === 1) return fuzzy[0]
+    if (prefixes.length > 1 || titles.length > 1 || fuzzy.length > 1) {
+      throw new Error(`ambiguous task "${id}".\n${board(teamID)}`)
+    }
+    throw new Error(`task not found "${id}".\n${board(teamID)}`)
+  }
+
+  function fresh(base: string) {
+    const seed = slug(base) || "team"
+    const rows = Database.use((db) =>
+      db.select({ name: TeamTable.name }).from(TeamTable).where(eq(TeamTable.project_id, Instance.project.id)).all(),
+    )
+    const used = new Set(rows.map((row) => row.name))
+    if (!used.has(seed)) return seed
+    for (let i = 2; i < 100; i++) {
+      const next = `${seed}-${i}`
+      if (!used.has(next)) return next
+    }
+    throw new Error(`could not allocate team name from "${base}"`)
+  }
+
+  function nick(teamID: string, value: string) {
+    const seed = slug(value)
+    if (!seed || seed === "lead") throw new Error(`invalid member name "${value}"`)
+    if (!memberByName(teamID, seed)) return seed
+    for (let i = 2; i < 50; i++) {
+      const next = `${seed}-${i}`
+      if (!memberByName(teamID, next)) return next
+    }
+    throw new Error(`could not allocate member name from "${value}"`)
+  }
+
+  async function kind(name: string) {
+    const raw = name.trim().toLowerCase()
+    if (!raw) throw new Error("agent required for spawn")
+    const mapped = ALIAS[raw] ?? raw
+    const all = (await Agent.list()).filter((a) => a.hidden !== true && !HIDDEN.has(a.name))
+    const listed = all.map((a) => a.name).join(", ")
+    const hint = `Use one of: ${listed}. Aliases: scout→explore, builder→build, research→researcher, docs→writer.`
+    const direct = await Agent.get(mapped)
+    if (direct && direct.hidden !== true && !HIDDEN.has(direct.name)) return direct
+    const exact = all.find((a) => a.name.toLowerCase() === mapped || a.name.toLowerCase() === raw)
+    if (exact) return exact
+    const prefix = all.filter((a) => a.name.toLowerCase().startsWith(mapped) || a.name.toLowerCase().startsWith(raw))
+    if (prefix.length === 1 && mapped.length >= 2) return prefix[0]
+    throw new Error(`unknown agent "${name}". ${hint}`)
+  }
+
+  function writes(agent: Agent.Info) {
+    return FILES.some((tool) => PermissionNext.evaluate(tool, "*", agent.permission).action !== "deny")
+  }
+
+  function nudge(ctx: { team: Info; member: Member }) {
+    const snap = snapshot(ctx.team.id)
+    if (!snap) return "Call team action=status."
+    const peers = snap.members.filter((m) => m.role === "member")
+    const live = peers.filter((m) => m.status === "busy" || m.status === "starting")
+    const dead = peers.filter((m) => m.status === "error")
+    const open = snap.tasks.pending + snap.tasks.blocked + snap.tasks.claimed
+    if (ctx.member.role !== "lead") {
+      if (ctx.member.planApproval === "pending") {
+        return "Research, message lead your plan, then wait for action=approve."
+      }
+      return "Do claimed work, message lead with findings, complete tasks, then stop. Never create or spawn."
+    }
+    if (!peers.length) {
+      return "Spawn 2 specialists (action=spawn with member, agent, prompt). Prefer researcher/writer/explore (worktree=false); build only for code."
+    }
+    if (dead.length) {
+      return `Re-spawn or message stuck members: ${dead.map((m) => m.name).join(", ")}.`
+    }
+    if (live.length) {
+      return `${live.length} teammate(s) still working. Do not wait in chat — you will be woken. On wake call action=status.`
+    }
+    if (open) {
+      return `Teammates idle with ${open} open task(s). Message them to continue, or complete/drop tasks.`
+    }
+    return "All idle and tasks clear. Synthesize for the user, merge worktrees if any, then action=cleanup."
   }
 
   function denyWrites() {
@@ -228,15 +369,15 @@ export namespace Team {
   }
 
   export function memberByName(teamID: string, name: string) {
-    const row = Database.use((db) =>
-      db
-        .select()
-        .from(TeamMemberTable)
-        .where(and(eq(TeamMemberTable.team_id, teamID), eq(TeamMemberTable.name, name)))
-        .get(),
-    )
-    if (!row) return
-    return fromMember(row)
+    const want = slug(name)
+    if (!want) return
+    const list = members(teamID)
+    const exact = list.find((m) => m.name === want)
+    if (exact) return exact
+    if (want.length < 2) return
+    const hits = list.filter((m) => m.name.startsWith(want))
+    if (hits.length === 1) return hits[0]
+    return
   }
 
   export function label(teamID: string) {
@@ -299,12 +440,16 @@ export namespace Team {
     return rows.map((row) => snapshot(row.id)).filter(Boolean) as Snapshot[]
   }
 
-  export async function create(input: { name: string; sessionID: SessionID; delegate?: boolean }) {
+  export async function create(input: { name?: string; sessionID: SessionID; delegate?: boolean }) {
     const existing = bySession(input.sessionID)
-    if (existing) throw new Error(`session already in team "${existing.team.name}"`)
+    if (existing) {
+      if (existing.member.role === "lead") return existing.team
+      throw new Error(
+        `session already in team "${existing.team.name}" as ${existing.member.role}. Use action=status, not create.`,
+      )
+    }
 
-    const name = input.name.trim()
-    if (!name) throw new Error("team name required")
+    const name = fresh(input.name || "team")
 
     const id = nid("tea")
     const mid = nid("tmb")
@@ -397,10 +542,6 @@ export namespace Team {
     return fromMember(row)
   }
 
-  function writable(agent: Agent.Info) {
-    return WRITE.some((tool) => PermissionNext.evaluate(tool, "*", agent.permission).action !== "deny")
-  }
-
   async function isolate(name: string) {
     if (Instance.project.vcs !== "git") return
     const info = await Worktree.makeWorktreeInfo(`team-${name}`)
@@ -427,7 +568,7 @@ export namespace Team {
 
   export async function spawn(input: {
     sessionID: SessionID
-    member: string
+    member?: string
     agent: string
     prompt: string
     model?: string
@@ -438,20 +579,37 @@ export namespace Team {
     if (!ctx || ctx.member.role !== "lead") throw new Error("only the team lead can spawn members")
     if (ctx.team.status !== "active") throw new Error("team is not active")
 
-    const name = input.member.trim().toLowerCase()
-    if (!name || name === "lead") throw new Error("invalid member name")
-    if (memberByName(ctx.team.id, name)) throw new Error(`member "${name}" already exists`)
+    const agent = await kind(input.agent)
+    const explicit = input.member?.trim()
+    const name = explicit ? slug(explicit) : nick(ctx.team.id, agent.name)
+    if (!name || name === "lead") throw new Error(`invalid member name "${input.member ?? ""}"`)
 
-    const peers = members(ctx.team.id).filter((m) => m.role === "member")
+    const prior = memberByName(ctx.team.id, name)
+    const dead = prior && (prior.status === "shutdown" || prior.status === "error")
+    if (prior && !dead) {
+      throw new Error(
+        `member "${prior.name}" already exists (${prior.status}). Use action=message to assign work, or pick a new member name. Known: ${roster(ctx.team.id).join(", ")}`,
+      )
+    }
+
+    const seats = members(ctx.team.id).filter(
+      (m) => m.role === "member" && m.status !== "shutdown" && m.status !== "error",
+    )
     const cap = await maxMembers()
-    if (peers.length >= cap) throw new Error(`team member limit reached (${cap})`)
-
-    const agent = await Agent.get(input.agent)
-    if (!agent) throw new Error(`unknown agent "${input.agent}"`)
+    if (!dead && seats.length >= cap) {
+      throw new Error(
+        `team member limit reached (${cap}). Live: ${seats.map((m) => m.name).join(", ") || "none"}. Shutdown an idle member, or re-spawn an error/shutdown name.`,
+      )
+    }
 
     const model = parseModel(input.model) ?? agent.model
-    const useTree = input.worktree ?? ((await defaultWorktree()) && writable(agent))
-    const tree = useTree ? await isolate(name) : undefined
+    const useTree =
+      input.worktree ?? ((await defaultWorktree()) && writes(agent) && !OFFICE.has(agent.name))
+    const tree = useTree
+      ? prior?.directory && prior.branch
+        ? { directory: prior.directory, branch: prior.branch }
+        : await isolate(name)
+      : undefined
     const directory = tree?.directory ?? Instance.directory
     const plan = input.plan_approval === true
 
@@ -474,30 +632,51 @@ export namespace Team {
       ],
     })
 
-    const mid = nid("tmb")
     const now = Date.now()
-    Database.use((db) =>
-      db
-        .insert(TeamMemberTable)
-        .values({
-          id: mid,
-          team_id: ctx.team.id,
-          name,
-          session_id: session.id,
-          agent: agent.name,
-          provider_id: model?.providerID,
-          model_id: model?.modelID,
-          role: "member",
-          status: "starting",
-          directory,
-          branch: tree?.branch,
-          plan_approval: plan ? "pending" : "none",
-          heartbeat_at: now,
-          time_created: now,
-          time_updated: now,
-        })
-        .run(),
-    )
+    if (prior && dead) {
+      Database.use((db) =>
+        db
+          .update(TeamMemberTable)
+          .set({
+            session_id: session.id,
+            agent: agent.name,
+            provider_id: model?.providerID,
+            model_id: model?.modelID,
+            status: "starting",
+            directory,
+            branch: tree?.branch,
+            last_error: null,
+            plan_approval: plan ? "pending" : "none",
+            heartbeat_at: now,
+            time_updated: now,
+          })
+          .where(eq(TeamMemberTable.id, prior.id))
+          .run(),
+      )
+    } else {
+      Database.use((db) =>
+        db
+          .insert(TeamMemberTable)
+          .values({
+            id: nid("tmb"),
+            team_id: ctx.team.id,
+            name,
+            session_id: session.id,
+            agent: agent.name,
+            provider_id: model?.providerID,
+            model_id: model?.modelID,
+            role: "member",
+            status: "starting",
+            directory,
+            branch: tree?.branch,
+            plan_approval: plan ? "pending" : "none",
+            heartbeat_at: now,
+            time_created: now,
+            time_updated: now,
+          })
+          .run(),
+      )
+    }
 
     const member = memberByName(ctx.team.id, name)!
     const snap = snapshot(ctx.team.id)!
@@ -562,12 +741,14 @@ export namespace Team {
         parts: [{ type: "text", text }],
       })
       const latest = bySession(member.sessionID)
-      if (!latest || latest.member.status === "shutdown") return
+      if (!latest || latest.member.status === "shutdown" || latest.member.status === "error") return
       setMemberStatus({ sessionID: member.sessionID, status: "idle" })
       const out = await summary(member.sessionID).catch(() => "")
+      const lead = members(latest.team.id).find((m) => m.role === "lead")
+      const extra = lead ? nudge({ team: latest.team, member: lead }) : "Call team({action:\"status\"}) and continue."
       const note = out
-        ? `${member.name} is idle.\n\nSummary:\n${out}\n\nCall team({action:"status"}). If all members are idle (and tasks done or dropped), synthesize for the user then cleanup. If others are still busy, keep coordinating.`
-        : `${member.name} is idle. Call team({action:"status"}) and continue.`
+        ? `${member.name} is idle.\n\nSummary:\n${out}\n\n${extra}`
+        : `${member.name} is idle. ${extra}`
       await notify(latest.team, member.name, note).catch((err) => {
         log.warn("idle notify failed", { member: member.name, error: err })
       })
@@ -687,14 +868,14 @@ export namespace Team {
 
   export async function message(input: { sessionID: SessionID; to: string; text: string }) {
     const ctx = bySession(input.sessionID)
-    if (!ctx) throw new Error("session is not on a team")
+    if (!ctx) throw new Error("session is not on a team. Lead: action=create with a short name first.")
     if (!input.text.trim()) throw new Error("message text required")
 
     const from = ctx.member.name
-    const to = input.to.trim()
-    if (!to) throw new Error("message target required")
+    const raw = input.to.trim().toLowerCase().replace(/^@+/, "")
+    if (!raw) throw new Error("message target required (member name, lead, or *)")
 
-    if (to === "*") {
+    if (EVERYONE.has(raw)) {
       const targets = members(ctx.team.id).filter((m) => m.name !== from)
       for (const target of targets) {
         await deliver({
@@ -709,13 +890,15 @@ export namespace Team {
     }
 
     const target =
-      to === "lead" ? members(ctx.team.id).find((m) => m.role === "lead") : memberByName(ctx.team.id, to)
-    if (!target) throw new Error(`unknown member "${to}"`)
+      raw === "lead" ? members(ctx.team.id).find((m) => m.role === "lead") : memberByName(ctx.team.id, raw)
+    if (!target) {
+      throw new Error(`unknown member "${input.to}". Known: ${roster(ctx.team.id).join(", ")}`)
+    }
 
     await deliver({
       teamID: ctx.team.id,
       from,
-      to,
+      to: raw === "lead" ? "lead" : target.name,
       target,
       text: input.text,
     })
@@ -737,10 +920,10 @@ export namespace Team {
 
   export function addTask(input: { sessionID: SessionID; title: string; deps?: string[] }) {
     const ctx = bySession(input.sessionID)
-    if (!ctx) throw new Error("session is not on a team")
+    if (!ctx) throw new Error("this session is not on a team. Lead: action=create with a short name first.")
     const title = input.title.trim()
     if (!title) throw new Error("task title required")
-    const deps = input.deps ?? []
+    const deps = (input.deps ?? []).map((dep) => ticket(ctx.team.id, dep).id)
     const status: TaskStatus = depsReady(ctx.team.id, deps) ? "pending" : "blocked"
     const id = nid("ttk")
     const now = Date.now()
@@ -766,14 +949,23 @@ export namespace Team {
 
   export function claimTask(input: { sessionID: SessionID; taskID: string }) {
     const ctx = bySession(input.sessionID)
-    if (!ctx) throw new Error("session is not on a team")
+    if (!ctx) throw new Error("this session is not on a team. Lead: action=create with a short name first.")
+    const found = ticket(ctx.team.id, input.taskID)
+    if (found.status === "done") throw new Error(`task already done: ${found.id} ${found.title}.\n${board(ctx.team.id)}`)
+    if (found.status === "claimed") {
+      if (found.owner === ctx.member.name) return found
+      throw new Error(`task already claimed by ${found.owner}: ${found.id} ${found.title}.\n${board(ctx.team.id)}`)
+    }
 
     const task = Database.transaction((db) => {
-      const row = db.select().from(TeamTaskTable).where(eq(TeamTaskTable.id, input.taskID)).get()
-      if (!row || row.team_id !== ctx.team.id) throw new Error("task not found")
-      if (row.status === "done") throw new Error("task already done")
-      if (row.status === "claimed") throw new Error(`task already claimed by ${row.owner}`)
-      if (!depsReady(ctx.team.id, row.deps ?? [])) throw new Error("task dependencies incomplete")
+      const row = db.select().from(TeamTaskTable).where(eq(TeamTaskTable.id, found.id)).get()
+      if (!row || row.team_id !== ctx.team.id) throw new Error(`task not found "${input.taskID}".\n${board(ctx.team.id)}`)
+      if (row.status === "done") throw new Error(`task already done: ${row.id} ${row.title}`)
+      if (row.status === "claimed") {
+        if (row.owner === ctx.member.name) return fromTask(row)
+        throw new Error(`task already claimed by ${row.owner}`)
+      }
+      if (!depsReady(ctx.team.id, row.deps ?? [])) throw new Error(`task dependencies incomplete: ${found.title}`)
 
       const next = db
         .update(TeamTaskTable)
@@ -782,7 +974,7 @@ export namespace Team {
           owner: ctx.member.name,
           time_updated: Date.now(),
         })
-        .where(and(eq(TeamTaskTable.id, input.taskID), inArray(TeamTaskTable.status, ["pending", "blocked"])))
+        .where(and(eq(TeamTaskTable.id, found.id), inArray(TeamTaskTable.status, ["pending", "blocked"])))
         .returning()
         .get()
       if (!next) throw new Error("failed to claim task")
@@ -796,11 +988,14 @@ export namespace Team {
 
   export function completeTask(input: { sessionID: SessionID; taskID: string }) {
     const ctx = bySession(input.sessionID)
-    if (!ctx) throw new Error("session is not on a team")
+    if (!ctx) throw new Error("this session is not on a team. Lead: action=create with a short name first.")
+    const found = ticket(ctx.team.id, input.taskID)
+    if (found.status === "done") return { done: found, freed: [] as Task[] }
 
     const updated = Database.transaction((db) => {
-      const row = db.select().from(TeamTaskTable).where(eq(TeamTaskTable.id, input.taskID)).get()
-      if (!row || row.team_id !== ctx.team.id) throw new Error("task not found")
+      const row = db.select().from(TeamTaskTable).where(eq(TeamTaskTable.id, found.id)).get()
+      if (!row || row.team_id !== ctx.team.id) throw new Error(`task not found "${input.taskID}".\n${board(ctx.team.id)}`)
+      if (row.status === "done") return { done: fromTask(row), freed: [] as Task[] }
 
       const done = db
         .update(TeamTaskTable)
@@ -809,7 +1004,7 @@ export namespace Team {
           owner: row.owner ?? ctx.member.name,
           time_updated: Date.now(),
         })
-        .where(eq(TeamTaskTable.id, input.taskID))
+        .where(eq(TeamTaskTable.id, found.id))
         .returning()
         .get()!
 
@@ -840,13 +1035,25 @@ export namespace Team {
     return updated
   }
 
+  export function advance(input: { sessionID: SessionID; taskID: string }) {
+    const ctx = bySession(input.sessionID)
+    if (!ctx) throw new Error("this session is not on a team. Lead: action=create with a short name first.")
+    const task = ticket(ctx.team.id, input.taskID)
+    if (task.status === "pending" || task.status === "blocked") {
+      return { action: "claim" as const, claimed: claimTask({ sessionID: input.sessionID, taskID: task.id }) }
+    }
+    const result = completeTask({ sessionID: input.sessionID, taskID: task.id })
+    return { action: "complete" as const, ...result }
+  }
+
   export function status(sessionID: SessionID) {
     const ctx = bySession(sessionID)
-    if (!ctx) throw new Error("session is not on a team")
+    if (!ctx) throw new Error("this session is not on a team. Lead: action=create with a short name first.")
     const snap = snapshot(ctx.team.id)!
     return {
       ...snap,
       you: ctx.member.name,
+      next: nudge(ctx),
       board: tasks(ctx.team.id),
     }
   }
@@ -854,9 +1061,15 @@ export namespace Team {
   export async function approve(input: { sessionID: SessionID; member: string; approve?: boolean }) {
     const ctx = bySession(input.sessionID)
     if (!ctx || ctx.member.role !== "lead") throw new Error("only the team lead can approve plans")
-    const target = memberByName(ctx.team.id, input.member.trim().toLowerCase())
-    if (!target) throw new Error(`unknown member "${input.member}"`)
-    if (target.planApproval !== "pending") throw new Error(`member "${target.name}" is not awaiting plan approval`)
+    const target = memberByName(ctx.team.id, input.member)
+    if (!target || target.role === "lead") {
+      throw new Error(`unknown member "${input.member}". Known: ${roster(ctx.team.id).join(", ")}`)
+    }
+    if (target.planApproval !== "pending") {
+      throw new Error(
+        `member "${target.name}" is not awaiting plan approval (plan_approval=${target.planApproval}). Use action=status.`,
+      )
+    }
 
     const ok = input.approve !== false
     const now = Date.now()
@@ -912,9 +1125,15 @@ export namespace Team {
   export async function merge(input: { sessionID: SessionID; member: string }) {
     const ctx = bySession(input.sessionID)
     if (!ctx || ctx.member.role !== "lead") throw new Error("only the team lead can merge")
-    const target = memberByName(ctx.team.id, input.member.trim().toLowerCase())
-    if (!target) throw new Error(`unknown member "${input.member}"`)
-    if (!target.branch) throw new Error(`member "${target.name}" has no worktree branch`)
+    const target = memberByName(ctx.team.id, input.member)
+    if (!target || target.role === "lead") {
+      throw new Error(`unknown member "${input.member}". Known: ${roster(ctx.team.id).join(", ")}`)
+    }
+    if (!target.branch) {
+      throw new Error(
+        `member "${target.name}" has no worktree branch (they may have been spawned with worktree=false). Use action=status.`,
+      )
+    }
 
     const check = await git(["merge", "--no-edit", target.branch], { cwd: Instance.worktree })
     if (check.exitCode !== 0) {
@@ -933,11 +1152,18 @@ export namespace Team {
     const ctx = bySession(input.sessionID)
     if (!ctx || ctx.member.role !== "lead") throw new Error("only the team lead can shutdown members")
 
-    const targets = input.member
-      ? [memberByName(ctx.team.id, input.member)].filter(Boolean)
-      : members(ctx.team.id).filter((m) => m.role === "member")
+    let targets: Member[]
+    if (input.member) {
+      const target = memberByName(ctx.team.id, input.member)
+      if (!target || target.role === "lead") {
+        throw new Error(`unknown member "${input.member}". Known: ${roster(ctx.team.id).join(", ")}`)
+      }
+      targets = [target]
+    } else {
+      targets = members(ctx.team.id).filter((m) => m.role === "member")
+    }
 
-    for (const target of targets as Member[]) {
+    for (const target of targets) {
       if (target.status === "shutdown") continue
       await deliver({
         teamID: ctx.team.id,
@@ -950,7 +1176,7 @@ export namespace Team {
       setMemberStatus({ sessionID: target.sessionID, status: "shutdown" })
     }
 
-    return { shutdown: (targets as Member[]).map((m) => m.name) }
+    return { shutdown: targets.map((m) => m.name) }
   }
 
   export async function cleanup(input: { sessionID: SessionID }) {
@@ -1068,10 +1294,16 @@ export namespace Team {
     )
 
     for (const row of stale) {
+      const sid = row.team_member.session_id
+      const session = SessionStatus.get(sid)
+      if (session.type !== "idle") {
+        heartbeat(sid)
+        continue
+      }
       const at = row.team_member.heartbeat_at ?? row.team_member.time_updated
       if (!at || at > cutoff) continue
       const member = setMemberStatus({
-        sessionID: row.team_member.session_id,
+        sessionID: sid,
         status: "error",
         error: "heartbeat timeout",
       })
@@ -1087,18 +1319,16 @@ export namespace Team {
     if (!ctx || ctx.team.status !== "active") return
     if (ctx.member.role === "lead") {
       return [
-        `You are lead of team "${ctx.team.name}"${ctx.team.delegate ? " in delegate mode (coordination only)" : ""}.`,
-        "Use the team tool to spawn ≤3 specialists (researcher, writer, analyst; build only for software), share tasks, message, approve plans, and merge worktrees.",
-        "Office members use worktree=false. Do not finish the user goal until the task board is clear or explicitly dropped.",
+        `You are lead of team "${ctx.team.name}"${ctx.team.delegate ? " (delegate: coordinate only, no writes)" : ""}.`,
+        nudge(ctx),
+        "Spawn uses member+agent+prompt (name= also works). Message uses to+text. Tasks: add/claim/complete (title or task id is enough).",
         `Status: ${label(ctx.team.id)}`,
       ].join(" ")
     }
     return [
       `You are "${ctx.member.name}" on team "${ctx.team.name}".`,
-      "Use team action=message|tasks|status only. Do not create or spawn.",
-      ctx.member.planApproval === "pending" ? "Writes locked until lead approves your plan." : "",
-    ]
-      .filter(Boolean)
-      .join(" ")
+      "Only team actions: message, tasks, status. Never create or spawn.",
+      nudge(ctx),
+    ].join(" ")
   }
 }

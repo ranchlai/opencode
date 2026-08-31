@@ -1,20 +1,18 @@
-Coordinate a flat multi-agent team (lead + named teammates).
+Coordinate a flat multi-agent team (lead + named teammates). Prefer 2 specialists. One action per call.
 
 Actions:
-- create: create a team; caller becomes lead. Args: name (team name), delegate?
-- spawn: lead only. Start a teammate in the background. Args: member (teammate name; name= also ok), agent, prompt, model?, worktree?, plan_approval?
-- message: send text to a member name, "lead", or "*". Args: to, text
-- tasks: shared board. Args: task_action=list|add|claim|complete, title?, task_id?, deps?
-- status: snapshot of members + task counts + badge label
-- approve / reject: lead only. Unlock/keep locked writes after plan review. Args: member
-- merge: lead only. Merge a member's worktree branch into the project. Args: member
+- create: start a team; caller becomes lead. Args: name? (auto "team" if omitted), delegate?
+- spawn: lead only. Start a background teammate. Args: member? (defaults to agent name), agent, prompt. name= and text= also work. Aliases: scout→explore, builder→build, research→researcher, docs→writer. Office/explore default worktree=false; build gets a worktree.
+- message: send text. Args: to (member, lead, or *), text. member= and prompt= also work. Case-insensitive; @name ok.
+- tasks: board. Args: task_action=list|add|claim|complete, title?, task_id?. Omitting task_action: title→add, task_id→claim or complete. Title can stand in for task_id.
+- status: snapshot + a "next" hint. Call this when woken.
+- approve / reject: lead only. Args: member
+- merge: lead only. Merge a member worktree. Args: member
 - shutdown: lead only. Stop one member or all. Args: member?
 - cleanup: lead only. Disband team and remove worktrees
 
 Rules:
-- Prefer 2-3 teammates with concrete prompts
-- Writers get git worktrees by default; explore/read-only should set worktree=false
-- Use plan_approval=true for risky writers
+- Members may only message / tasks / status
 - Nested task subagents cannot use this tool
-- Only lead can create/spawn/shutdown/cleanup/approve/reject/merge
 - Lead is auto-woken when members finish or message; do not end a turn only waiting
+- If a call fails, read the error (it lists valid names/tasks) and retry
