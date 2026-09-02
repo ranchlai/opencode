@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import path from "path"
 import { HardLoop } from "../../src/session/hard-loop"
+import { Command } from "../../src/command"
 import { Instance } from "../../src/project/instance"
+import { SessionID } from "../../src/session/schema"
 import { tmpdir } from "../fixture/fixture"
 
 describe("HardLoop.parse", () => {
@@ -195,5 +197,38 @@ describe("HardLoop.drive", () => {
       ac.signal,
     )
     expect(result).toEqual({ kind: "abort", rounds: 1 })
+  })
+})
+
+describe("HardLoop.start", () => {
+  const sid = SessionID.make("ses_hard_loop_slash_test")
+
+  test("stop aborts a running job", async () => {
+    await using tmp = await tmpdir()
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const done = HardLoop.start(sid, { goal: "x", max: 10 }, async () => {
+          HardLoop.stop(sid)
+          return "working"
+        })
+        expect(HardLoop.get(sid)).toBeDefined()
+        const result = await done
+        expect(result).toEqual({ kind: "abort", rounds: 1 })
+        expect(HardLoop.get(sid)).toBeUndefined()
+      },
+    })
+  })
+
+  test("slash command is registered", async () => {
+    await using tmp = await tmpdir()
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const cmd = await Command.get(Command.Default.HARD_LOOP)
+        expect(cmd?.name).toBe("hard-loop")
+        expect(cmd?.description).toContain("/hard-loop")
+      },
+    })
   })
 })

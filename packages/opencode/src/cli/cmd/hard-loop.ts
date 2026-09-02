@@ -3,7 +3,6 @@ import { cmd } from "./cmd"
 import { UI } from "../ui"
 import { bootstrap } from "../bootstrap"
 import { Config } from "../../config/config"
-import { Process } from "../../util/process"
 import { HardLoop } from "../../session/hard-loop"
 import { Filesystem } from "../../util/filesystem"
 
@@ -89,31 +88,24 @@ export const HardLoopCommand = cmd({
       process.on("SIGINT", stop)
       process.on("SIGTERM", stop)
 
-      const exe = self()
       const result = await HardLoop.drive(
         info,
-        async (text) => {
+        async (text, abort) => {
           UI.empty()
           UI.println(
             `${UI.Style.TEXT_INFO_BOLD}hard-loop ${info.rounds + 1}${info.max ? `/${info.max}` : ""}${UI.Style.TEXT_NORMAL}`,
           )
-          const out = await capture(
-            [
-              ...exe,
-              "run",
-              "--dir",
-              cwd,
-              "--title",
-              `hard-loop ${info.rounds + 1}`,
-              ...(args.model ? ["--model", args.model] : []),
-              ...(args.agent ? ["--agent", args.agent] : []),
-              ...(args.variant ? ["--variant", args.variant] : []),
-              ...[args.file ?? []].flat().flatMap((file) => ["-f", file]),
-              text,
-            ],
+          const out = await HardLoop.exec({
             cwd,
-            ac.signal,
-          )
+            text,
+            model: args.model,
+            agent: args.agent,
+            variant: args.variant,
+            files: [args.file ?? []].flat(),
+            title: `hard-loop ${info.rounds + 1}`,
+            abort,
+            echo: true,
+          })
           return out.text
         },
         ac.signal,
@@ -133,33 +125,3 @@ export const HardLoopCommand = cmd({
     })
   },
 })
-
-function self() {
-  const entry = process.argv[1]
-  if (entry && /\.(c|m)?(t|j)sx?$/.test(entry)) return [process.execPath, entry]
-  return [process.execPath]
-}
-
-async function capture(cmd: string[], cwd: string, abort: AbortSignal) {
-  const child = Process.spawn(cmd, {
-    cwd,
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
-    abort,
-  })
-  const chunks: Buffer[] = []
-  const pump = (src: NodeJS.ReadableStream | null, dest: NodeJS.WriteStream) => {
-    if (!src) return
-    return new Promise<void>((resolve, reject) => {
-      src.on("data", (buf: Buffer) => {
-        dest.write(buf)
-        chunks.push(buf)
-      })
-      src.on("end", resolve)
-      src.on("error", reject)
-    })
-  }
-  const [code] = await Promise.all([child.exited, pump(child.stdout, process.stdout), pump(child.stderr, process.stderr)])
-  return { code, text: Buffer.concat(chunks).toString() }
-}

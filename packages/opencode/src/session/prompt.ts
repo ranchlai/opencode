@@ -14,6 +14,7 @@ import { ModelID, ProviderID } from "../provider/schema"
 import { type Tool as AITool, tool, jsonSchema, type ToolCallOptions, asSchema } from "ai"
 import { SessionCompaction } from "./compaction"
 import { SessionLoop } from "./loop"
+import { HardLoop } from "./hard-loop"
 import { SessionRepeat } from "./repeat"
 import { Instance } from "../project/instance"
 import { Bus } from "../bus"
@@ -261,6 +262,7 @@ export namespace SessionPrompt {
   export function cancel(sessionID: SessionID) {
     log.info("cancel", { sessionID })
     SessionLoop.stop(sessionID)
+    HardLoop.stop(sessionID)
     SessionRepeat.stop(sessionID)
     const s = state()
     const match = s[sessionID]
@@ -1851,9 +1853,14 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const agentName = command.agent ?? input.agent ?? (await Agent.defaultAgent())
 
     const loop = input.command === Command.Default.LOOP ? SessionLoop.parse(input.arguments) : undefined
+    const hard = input.command === Command.Default.HARD_LOOP ? HardLoop.parse(input.arguments) : undefined
     const repeat = input.command === Command.Default.REPEAT ? SessionRepeat.parse(input.arguments) : undefined
-    const argumentText =
-      loop?.kind === "start" ? loop.goal : repeat?.kind === "start" ? repeat.goal : input.arguments
+    const argumentText = (() => {
+      if (loop?.kind === "start") return loop.goal
+      if (hard?.kind === "start") return hard.goal
+      if (repeat?.kind === "start") return repeat.goal
+      return input.arguments
+    })()
 
     const raw = argumentText.match(argsRegex) ?? []
     const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
@@ -1975,6 +1982,81 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       { parts },
     )
 
+    if (hard?.kind === "stop") {
+      HardLoop.stop(input.sessionID)
+      const result = (await prompt({
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        model: userModel,
+        agent: userAgent,
+        parts: [{ type: "text", text: "Hard loop stopped." }],
+        variant: input.variant,
+        noReply: true,
+      })) as MessageV2.WithParts
+      Bus.publish(Command.Event.Executed, {
+        name: input.command,
+        sessionID: input.sessionID,
+        arguments: input.arguments,
+        messageID: result.info.id,
+      })
+      return result
+    }
+    if (hard?.kind === "start") {
+      SessionLoop.stop(input.sessionID)
+      const result = (await prompt({
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        model: userModel,
+        agent: userAgent,
+        parts: [
+          {
+            type: "text",
+            text: `Hard loop started. Each round is a fresh \`opencode run\`.\n\n${hard.goal}`,
+          },
+        ],
+        variant: input.variant,
+        noReply: true,
+      })) as MessageV2.WithParts
+      const user = result.info as MessageV2.User
+      const cwd = Instance.directory
+      HardLoop.start(input.sessionID, {
+        goal: hard.goal,
+        deadline: hard.deadline,
+        max: hard.max,
+      }, async (text, abort) => {
+        const info = HardLoop.get(input.sessionID)
+        await note(
+          input.sessionID,
+          user,
+          `hard-loop ${(info?.rounds ?? 0) + 1}${info?.max ? `/${info.max}` : ""}`,
+        )
+        return (
+          await HardLoop.exec({
+            cwd,
+            text,
+            model: input.model,
+            agent: input.agent,
+            variant: input.variant,
+            title: `hard-loop ${(info?.rounds ?? 0) + 1}`,
+            abort,
+          })
+        ).text
+      }).then(
+        async (out) => {
+          await note(input.sessionID, user, `Hard loop ${out.kind} after ${out.rounds} rounds.`)
+        },
+        (err) => {
+          log.error("hard-loop failed", { error: err })
+        },
+      )
+      Bus.publish(Command.Event.Executed, {
+        name: input.command,
+        sessionID: input.sessionID,
+        arguments: input.arguments,
+        messageID: result.info.id,
+      })
+      return result
+    }
     if (loop?.kind === "stop") {
       SessionLoop.stop(input.sessionID)
       const result = (await prompt({

@@ -4,6 +4,7 @@ This is a hands-on guide to **this checkout** of OpenCode — not the public `op
 
 - **Non-streaming LLM calls** (`experimental.disable_stream`) for providers that mishandle SSE
 - **`/loop`** for long-running goals that survive context compaction
+- **`/hard-loop`** for the same goal, but each round is a fresh `opencode run` process
 - **`/repeat`** for many similar jobs with different inputs, each in a fresh child session
 - **`hard-repeat`** CLI to loop an Excel/CSV list: one `opencode run` per row, each in its own git worktree
 - **Team mode** (`/team`) so one lead can spawn specialists in parallel
@@ -394,6 +395,18 @@ The agent must finish with `LOOP_DONE` or `LOOP_BLOCKED`. Compaction can run in 
 Each command runs from the project directory. If any exits non-zero, `LOOP_DONE` is rejected and the agent gets the output. `LOOP_BLOCKED` always stops without verify.
 
 Give `/loop` a **concrete done condition**. Vague goals wander until the budget expires.
+
+### 7.2b `/hard-loop` — same goal, fresh process each round
+
+Use this when you want `/loop` semantics but **no leftover chat**. Each round starts `opencode run` from scratch; the repo (and `loop.verify`) are the only memory.
+
+```text
+/hard-loop 2h ship the auth refactor
+/hard-loop 50 @docs/roadmap.md
+/hard-loop stop
+```
+
+Same budget tokens as `/loop`. Default cap is 50 rounds if you omit both a deadline and a number. Escape or `/hard-loop stop` aborts the current child.
 
 ### 7.3 `/repeat` — many items, isolated chats
 

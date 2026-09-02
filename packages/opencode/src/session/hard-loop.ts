@@ -1,7 +1,22 @@
 import { SessionLoop } from "./loop"
+import { SessionID } from "./schema"
+import { Instance } from "@/project/instance"
+import { Config } from "@/config/config"
+import { Process } from "@/util/process"
+import { Log } from "@/util/log"
 
 export namespace HardLoop {
+  const log = Log.create({ service: "session.hard-loop" })
+  const DEFAULT_MAX = 50
+
   export type Info = SessionLoop.Info
+
+  type Job = {
+    info: Info
+    abort: AbortController
+  }
+
+  const jobs = Instance.state(() => new Map<string, Job>())
 
   export type Verdict =
     | { kind: "done" }
@@ -84,7 +99,7 @@ export namespace HardLoop {
 
   export async function drive(
     info: Info,
-    run: (text: string) => Promise<string>,
+    run: (text: string, abort?: AbortSignal) => Promise<string>,
     abort?: AbortSignal,
   ): Promise<Result> {
     let extra: string | undefined
@@ -93,7 +108,7 @@ export namespace HardLoop {
       if (hit) return { kind: hit.kind, rounds: info.rounds }
       if (abort?.aborted) return { kind: "abort", rounds: info.rounds }
 
-      const text = await run(prompt(info, extra))
+      const text = await run(prompt(info, extra), abort)
       extra = undefined
       info.rounds += 1
 
@@ -105,5 +120,103 @@ export namespace HardLoop {
       }
       extra = verdict.extra
     }
+  }
+
+  export function get(id: SessionID) {
+    return jobs().get(id)?.info
+  }
+
+  export function stop(id: SessionID) {
+    const job = jobs().get(id)
+    if (!job) return
+    job.abort.abort()
+    jobs().delete(id)
+    log.info("hard-loop stop", { sessionID: id })
+  }
+
+  export async function start(
+    id: SessionID,
+    input: {
+      goal: string
+      deadline?: number
+      max?: number
+      verify?: string[]
+      started?: number
+    },
+    run: (text: string, abort?: AbortSignal) => Promise<string>,
+  ) {
+    stop(id)
+    const verify = input.verify !== undefined ? input.verify : ((await Config.get()).loop?.verify ?? [])
+    const info = create({
+      goal: input.goal,
+      deadline: input.deadline,
+      max: input.max ?? (input.deadline ? undefined : DEFAULT_MAX),
+      verify,
+      started: input.started,
+    })
+    const abort = new AbortController()
+    jobs().set(id, { info, abort })
+    log.info("hard-loop start", { sessionID: id, deadline: info.deadline, max: info.max, verify: info.verify.length })
+    return drive(info, run, abort.signal).finally(() => {
+      const cur = jobs().get(id)
+      if (cur?.abort === abort) jobs().delete(id)
+    })
+  }
+
+  export function exe() {
+    const entry = process.argv[1]
+    if (entry && /\.(c|m)?(t|j)sx?$/.test(entry)) return [process.execPath, entry]
+    return [process.execPath]
+  }
+
+  export async function exec(opts: {
+    cwd: string
+    text: string
+    model?: string
+    agent?: string
+    variant?: string
+    files?: string[]
+    title?: string
+    abort?: AbortSignal
+    echo?: boolean
+  }) {
+    const cmd = [
+      ...exe(),
+      "run",
+      "--dir",
+      opts.cwd,
+      "--title",
+      opts.title ?? "hard-loop",
+      ...(opts.model ? ["--model", opts.model] : []),
+      ...(opts.agent ? ["--agent", opts.agent] : []),
+      ...(opts.variant ? ["--variant", opts.variant] : []),
+      ...(opts.files ?? []).flatMap((file) => ["-f", file]),
+      opts.text,
+    ]
+    if (!opts.echo) {
+      const out = await Process.run(cmd, { cwd: opts.cwd, abort: opts.abort, nothrow: true })
+      return { code: out.code, text: Buffer.concat([out.stdout, out.stderr]).toString() }
+    }
+    const child = Process.spawn(cmd, {
+      cwd: opts.cwd,
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+      abort: opts.abort,
+    })
+    const chunks: Buffer[] = []
+    const pump = (src: NodeJS.ReadableStream | null, dest: NodeJS.WriteStream) => {
+      if (!src) return
+      return new Promise<void>((resolve, reject) => {
+        src.on("data", (buf: Buffer) => {
+          dest.write(buf)
+          chunks.push(buf)
+        })
+        src.on("end", resolve)
+        src.on("error", reject)
+      })
+    }
+    const [code] = await Promise.all([child.exited, pump(child.stdout, process.stdout), pump(child.stderr, process.stderr)])
+    return { code, text: Buffer.concat(chunks).toString() }
   }
 }

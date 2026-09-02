@@ -8,6 +8,7 @@ import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import PROMPT_SIMPLIFY from "./template/simplify.txt"
 import PROMPT_LOOP from "./template/loop.txt"
+import PROMPT_HARD_LOOP from "./template/hard-loop.txt"
 import PROMPT_REPEAT from "./template/repeat.txt"
 import PROMPT_TEAM from "./template/team.txt"
 import { MCP } from "../mcp"
@@ -62,6 +63,7 @@ export namespace Command {
     REVIEW: "review",
     SIMPLIFY: "simplify",
     LOOP: "loop",
+    HARD_LOOP: "hard-loop",
     REPEAT: "repeat",
     TEAM: "team",
   } as const
@@ -106,6 +108,15 @@ export namespace Command {
           return PROMPT_LOOP
         },
         hints: hints(PROMPT_LOOP),
+      },
+      [Default.HARD_LOOP]: {
+        name: Default.HARD_LOOP,
+        description: "fresh process loop [2h|50] <goal|@doc> — reruns opencode until LOOP_DONE; /hard-loop stop to end",
+        source: "command",
+        get template() {
+          return PROMPT_HARD_LOOP
+        },
+        hints: hints(PROMPT_HARD_LOOP),
       },
       [Default.REPEAT]: {
         name: Default.REPEAT,
