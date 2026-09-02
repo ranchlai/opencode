@@ -59,6 +59,7 @@ console.log(`Loaded ${migrations.length} migrations`)
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
 const skipInstall = process.argv.includes("--skip-install")
+const skipWeb = process.argv.includes("--skip-web")
 const filters = process.argv
   .slice(2)
   .filter((arg) => !arg.startsWith("--"))
@@ -166,6 +167,15 @@ if (targets.length === 0) {
   process.exit(1)
 }
 
+const web = path.join(dir, "../app/dist")
+if (!skipWeb) {
+  await $`bun run build`.cwd(path.join(dir, "../app"))
+  if (!(await Bun.file(path.join(web, "index.html")).exists())) {
+    console.error("error: packages/app/dist/index.html missing after web build")
+    process.exit(1)
+  }
+}
+
 await $`rm -rf dist`
 
 const binaries: Record<string, string> = {}
@@ -222,6 +232,9 @@ for (const item of targets) {
   })
 
   await $`rm -rf ./dist/${name}/bin/tui`
+  if (!skipWeb) {
+    await $`cp -r ${web} dist/${name}/bin/web`
+  }
   await Bun.file(`dist/${name}/package.json`).write(
     JSON.stringify(
       {
