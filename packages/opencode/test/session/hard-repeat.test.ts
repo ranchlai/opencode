@@ -72,6 +72,49 @@ describe("Table.load", () => {
   })
 })
 
+describe("excel row summarization", () => {
+  test("summarizes each row into a new workbook", async () => {
+    await using tmp = await tmpdir()
+    const input = path.join(tmp.path, "docs.xlsx")
+    const output = path.join(tmp.path, "summary.xlsx")
+    const source = [
+      {
+        id: "DOC-1",
+        title: "登录超时",
+        body: "用户在保存前闲置 30 秒会丢失未保存的表单。需要在超时前提醒。",
+      },
+      {
+        id: "DOC-2",
+        title: "README 笔误",
+        body: "安装章节写的是 npm install，实际应使用 bun install。文档和脚本不一致。",
+      },
+      {
+        id: "DOC-3",
+        title: "夜间构建失败",
+        body: "CI 在 nightly 任务里偶发 OOM。日志指向类型检查并行度过高。",
+      },
+    ]
+
+    await Table.save(input, source, ["id", "title", "body"])
+    const rows = await Table.load(input)
+    expect(rows).toHaveLength(3)
+
+    const summaries = rows.map((row, i) => ({
+      id: row.cells.id,
+      title: row.cells.title,
+      summary: brief(Table.fill("$BODY", row.cells, i)),
+    }))
+    await Table.save(output, summaries, ["id", "title", "summary"])
+
+    const got = await Table.load(output)
+    expect(got.map((row) => row.cells)).toEqual([
+      { id: "DOC-1", title: "登录超时", summary: "用户在保存前闲置 30 秒会丢失未保存的表单。" },
+      { id: "DOC-2", title: "README 笔误", summary: "安装章节写的是 npm install，实际应使用 bun install。" },
+      { id: "DOC-3", title: "夜间构建失败", summary: "CI 在 nightly 任务里偶发 OOM。" },
+    ])
+  })
+})
+
 describe("Worktree.open", () => {
   test("checks out a populated worktree", async () => {
     await using tmp = await tmpdir({
@@ -99,6 +142,10 @@ describe("Worktree.open", () => {
     }
   })
 })
+
+function brief(text: string) {
+  return text.split(/(?<=[。.!？?])\s*/)[0]?.trim() || text.trim()
+}
 
 function xlsx(shots = false) {
   const sheet = `<?xml version="1.0"?>

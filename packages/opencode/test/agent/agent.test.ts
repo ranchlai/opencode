@@ -46,6 +46,11 @@ test("work agent is the default primary with write access", async () => {
       expect(evalPerm(work, "bash")).toBe("allow")
       const listed = await Agent.list()
       expect(listed[0]?.name).toBe("work")
+      expect(Agent.isolate("work")).toBe(false)
+      expect(Agent.isolate("writer")).toBe(false)
+      expect(Agent.isolate("analyst")).toBe(false)
+      expect(Agent.isolate("plan")).toBe(false)
+      expect(Agent.isolate("build")).toBe(true)
     },
   })
 })

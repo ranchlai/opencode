@@ -267,6 +267,27 @@ describe("team mode", () => {
     })
   })
 
+  test("spawn work defaults to no worktree", async () => {
+    await using tmp = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const lead = await Session.create({})
+        await Team.create({ name: "office", sessionID: lead.id })
+        const out = await Team.spawn({
+          sessionID: lead.id,
+          member: "helper",
+          agent: "work",
+          prompt: "summarize the sheet",
+        })
+        expect(out.member.agent).toBe("work")
+        expect(out.worktree).toBeUndefined()
+        await Team.cleanup({ sessionID: lead.id })
+        await Session.remove(lead.id)
+      },
+    })
+  })
+
   test("spawn writer without worktree", async () => {
     await using tmp = await tmpdir({ git: true })
     await Instance.provide({

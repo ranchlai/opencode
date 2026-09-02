@@ -335,6 +335,12 @@ export namespace Agent {
     return result
   })
 
+  const OFFICE = new Set(["work", "explore", "researcher", "writer", "analyst", "plan"])
+
+  export function isolate(name: string) {
+    return !OFFICE.has(name)
+  }
+
   export async function get(agent: string) {
     return state().then((x) => x[agent])
   }

@@ -1,5 +1,5 @@
 import path from "path"
-import { inflateRawSync } from "node:zlib"
+import { crc32, inflateRawSync } from "node:zlib"
 
 export namespace Table {
   export type Cells = Record<string, string>
@@ -49,6 +49,20 @@ export namespace Table {
     return Object.values(cells)
       .filter((value) => value.trim())
       .join("\n")
+  }
+
+  export async function save(file: string, rows: Cells[], columns?: string[]) {
+    const keys = columns ?? names(rows)
+    const ext = path.extname(file).toLowerCase()
+    if (ext === ".csv") {
+      await Bun.write(file, csvText(keys, rows))
+      return
+    }
+    if (ext === ".xlsx" || ext === ".xlsm") {
+      await Bun.write(file, book(keys, rows))
+      return
+    }
+    throw new Error(`Unsupported table format: ${ext}`)
   }
 
   export function fill(tmpl: string, cells: Cells, index: number, column?: string) {
@@ -391,5 +405,114 @@ export namespace Table {
       out.set(name.replace(/\\/g, "/"), Buffer.from(bytes))
     }
     return out
+  }
+
+  function names(rows: Cells[]) {
+    return [...new Set(rows.flatMap((row) => Object.keys(row)))]
+  }
+
+  function csvText(keys: string[], rows: Cells[]) {
+    const lines = [keys.map(quote).join(","), ...rows.map((row) => keys.map((key) => quote(row[key] ?? "")).join(","))]
+    return lines.join("\n") + "\n"
+  }
+
+  function quote(value: string) {
+    if (!/[",\n\r]/.test(value)) return value
+    return `"${value.replaceAll('"', '""')}"`
+  }
+
+  function book(keys: string[], rows: Cells[]) {
+    const grid = [keys, ...rows.map((row) => keys.map((key) => row[key] ?? ""))]
+    const cells = grid
+      .map((line, r) => {
+        const inner = line
+          .map((value, c) => {
+            const ref = `${alpha(c)}${r + 1}`
+            return `<c r="${ref}" t="inlineStr"><is><t>${escape(value)}</t></is></c>`
+          })
+          .join("")
+        return `<row r="${r + 1}">${inner}</row>`
+      })
+      .join("")
+    return zip({
+      "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`,
+      "_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`,
+      "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Sheet1" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`,
+      "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`,
+      "xl/worksheets/sheet1.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>${cells}</sheetData>
+</worksheet>`,
+    })
+  }
+
+  function alpha(index: number) {
+    let n = index
+    let out = ""
+    while (n >= 0) {
+      out = String.fromCharCode((n % 26) + 65) + out
+      n = Math.floor(n / 26) - 1
+    }
+    return out
+  }
+
+  function escape(text: string) {
+    return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;")
+  }
+
+  function zip(files: Record<string, string | Buffer>) {
+    const locals: Buffer[] = []
+    const centrals: Buffer[] = []
+    let offset = 0
+    for (const [name, body] of Object.entries(files)) {
+      const data = Buffer.isBuffer(body) ? body : Buffer.from(body)
+      const n = Buffer.from(name)
+      const local = Buffer.alloc(30)
+      local.writeUInt32LE(0x04034b50, 0)
+      local.writeUInt16LE(20, 4)
+      local.writeUInt16LE(0, 8)
+      local.writeUInt32LE(crc32(data), 14)
+      local.writeUInt32LE(data.length, 18)
+      local.writeUInt32LE(data.length, 22)
+      local.writeUInt16LE(n.length, 26)
+      const piece = Buffer.concat([local, n, data])
+      locals.push(piece)
+      const central = Buffer.alloc(46)
+      central.writeUInt32LE(0x02014b50, 0)
+      central.writeUInt16LE(20, 4)
+      central.writeUInt16LE(20, 6)
+      central.writeUInt32LE(crc32(data), 16)
+      central.writeUInt32LE(data.length, 20)
+      central.writeUInt32LE(data.length, 24)
+      central.writeUInt16LE(n.length, 28)
+      central.writeUInt32LE(offset, 42)
+      centrals.push(Buffer.concat([central, n]))
+      offset += piece.length
+    }
+    const center = Buffer.concat(centrals)
+    const eocd = Buffer.alloc(22)
+    eocd.writeUInt32LE(0x06054b50, 0)
+    eocd.writeUInt16LE(locals.length, 8)
+    eocd.writeUInt16LE(locals.length, 10)
+    eocd.writeUInt32LE(center.length, 12)
+    eocd.writeUInt32LE(offset, 16)
+    return Buffer.concat([...locals, center, eocd])
   }
 }

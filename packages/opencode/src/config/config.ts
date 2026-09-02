@@ -1209,7 +1209,7 @@ export namespace Config {
             .array(z.string())
             .optional()
             .describe(
-              "Shell commands that must exit 0 before LOOP_DONE is accepted in autonomous /loop mode. Run from the project directory.",
+              "Shell commands that must exit 0 before LOOP_DONE is accepted in /loop and hard-loop. Run from the project directory.",
             ),
         })
         .optional()

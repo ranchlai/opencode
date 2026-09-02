@@ -8,6 +8,7 @@ import { Worktree } from "../../worktree"
 import { Table } from "../../util/table"
 import { Process } from "../../util/process"
 import { Filesystem } from "../../util/filesystem"
+import { Agent } from "../../agent/agent"
 
 const FALLBACK = `Fix this bug in the current worktree. Do not touch unrelated files.
 
@@ -15,7 +16,7 @@ $ITEM`
 
 export const HardRepeatCommand = cmd({
   command: "hard-repeat <file> [prompt..]",
-  describe: "for each spreadsheet row, run opencode in a fresh git worktree",
+  describe: "for each spreadsheet row, run opencode (worktree for build; same dir for work)",
   builder: (yargs: Argv) => {
     return yargs
       .positional("file", {
@@ -67,6 +68,16 @@ export const HardRepeatCommand = cmd({
         default: false,
         describe: "remove a worktree after a successful run",
       })
+      .option("loop", {
+        type: "boolean",
+        default: false,
+        describe: "keep rerunning each row in a fresh process until LOOP_DONE",
+      })
+      .option("no-worktree", {
+        type: "boolean",
+        default: false,
+        describe: "run every row in the current directory (work already defaults to this)",
+      })
       .option("dry-run", {
         type: "boolean",
         default: false,
@@ -88,38 +99,45 @@ export const HardRepeatCommand = cmd({
       process.exit(1)
     }
 
-    const jobs = Math.max(1, Math.floor(args.jobs || 1))
     const keep = args.rm ? false : args.keep
     let ok = 0
     let fail = 0
 
-    if (args.dryRun) {
-      for (let i = 0; i < list.length; i++) {
-        const row = list[i]
-        UI.println(`${i + 1}/${list.length} ${label(row, i)}`)
-        UI.println(Table.fill(tmpl, row.cells, i, args.column))
-        if (row.files.length) UI.println(`  screenshots: ${row.files.map((file) => file.name).join(", ")}`)
-        UI.empty()
-      }
-      UI.println(`dry-run ${list.length} items, jobs=${jobs}`)
-      return
-    }
-
     await bootstrap(process.cwd(), async () => {
-      if (Instance.project.vcs !== "git") {
+      const agent = args.agent ?? (await Agent.defaultAgent())
+      const tree = !args.noWorktree && Agent.isolate(agent)
+      const want = Math.max(1, Math.floor(args.jobs || 1))
+      const jobs = tree ? want : 1
+
+      if (args.dryRun) {
+        for (let i = 0; i < list.length; i++) {
+          const row = list[i]
+          UI.println(`${i + 1}/${list.length} ${label(row, i)}`)
+          UI.println(Table.fill(tmpl, row.cells, i, args.column))
+          if (row.files.length) UI.println(`  screenshots: ${row.files.map((file) => file.name).join(", ")}`)
+          UI.empty()
+        }
+        UI.println(`dry-run ${list.length} items, jobs=${jobs}${tree ? "" : ", no-worktree"}`)
+        return
+      }
+
+      if (tree && Instance.project.vcs !== "git") {
         UI.error("hard-repeat needs a git repository so it can create worktrees")
         process.exit(1)
       }
 
+      const root = Instance.directory
       const exe = self()
       await pool(list, jobs, async (row, i) => {
         const name = label(row, i)
         const text = Table.fill(tmpl, row.cells, i, args.column)
         UI.println(`${UI.Style.TEXT_INFO_BOLD}${i + 1}/${list.length}${UI.Style.TEXT_NORMAL} ${name}`)
 
-        const info = await Worktree.open({ name })
-        UI.println(`  worktree ${info.directory}`)
-        UI.println(`  branch   ${info.branch}`)
+        const info = tree ? await Worktree.open({ name }) : { directory: root }
+        if ("branch" in info) {
+          UI.println(`  worktree ${info.directory}`)
+          UI.println(`  branch   ${info.branch}`)
+        }
 
         const shots: string[] = []
         if (row.files.length) {
@@ -133,19 +151,18 @@ export const HardRepeatCommand = cmd({
           }
         }
 
-        const cmd = [
-          ...exe,
-          "run",
+        const flags = [
           "--dir",
           info.directory,
-          "--title",
-          name.slice(0, 80),
-          ...shots.flatMap((file) => ["-f", file]),
+          "--agent",
+          agent,
           ...(args.model ? ["--model", args.model] : []),
-          ...(args.agent ? ["--agent", args.agent] : []),
           ...(args.variant ? ["--variant", args.variant] : []),
-          text,
+          ...shots.flatMap((file) => ["-f", file]),
         ]
+        const cmd = args.loop
+          ? [...exe, "hard-loop", ...flags, text]
+          : [...exe, "run", ...flags, "--title", name.slice(0, 80), text]
         const child = Process.spawn(cmd, {
           cwd: info.directory,
           stdin: "ignore",
@@ -155,11 +172,15 @@ export const HardRepeatCommand = cmd({
         const code = await child.exited
         if (code === 0) {
           ok++
-          if (!keep) await Worktree.remove({ directory: info.directory })
+          if (tree && !keep) await Worktree.remove({ directory: info.directory })
           return
         }
         fail++
-        UI.error(`  item ${i + 1} failed (exit ${code}); worktree kept at ${info.directory}`)
+        UI.error(
+          tree
+            ? `  item ${i + 1} failed (exit ${code}); worktree kept at ${info.directory}`
+            : `  item ${i + 1} failed (exit ${code})`,
+        )
       })
     })
 

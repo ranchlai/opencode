@@ -123,7 +123,6 @@ export namespace Team {
 
   const WRITE = ["edit", "write", "bash", "apply_patch"] as const
   const FILES = ["edit", "write", "apply_patch"] as const
-  const OFFICE = new Set(["explore", "researcher", "writer", "analyst", "plan"])
   const HIDDEN = new Set(["compaction", "title", "summary"])
   const EVERYONE = new Set(["*", "all", "everyone", "team", "broadcast"])
   const ALIAS: Record<string, string> = {
@@ -604,7 +603,7 @@ export namespace Team {
 
     const model = parseModel(input.model) ?? agent.model
     const useTree =
-      input.worktree ?? ((await defaultWorktree()) && writes(agent) && !OFFICE.has(agent.name))
+      input.worktree ?? ((await defaultWorktree()) && writes(agent) && Agent.isolate(agent.name))
     const tree = useTree
       ? prior?.directory && prior.branch
         ? { directory: prior.directory, branch: prior.branch }
