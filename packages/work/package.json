@@ -1,0 +1,33 @@
+{
+  "name": "@opencode-ai/work",
+  "version": "1.3.0",
+  "description": "Task-shaped web client for opencode serve",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "typecheck": "tsgo -b"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@tsconfig/bun": "1.0.9",
+    "@types/bun": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-solid": "catalog:"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/ui": "workspace:*",
+    "diff": "catalog:",
+    "@solidjs/meta": "catalog:",
+    "@solidjs/router": "catalog:",
+    "solid-js": "catalog:",
+    "tailwindcss": "catalog:"
+  }
+}

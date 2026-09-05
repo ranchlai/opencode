@@ -1,0 +1,27 @@
+@import "@opencode-ai/ui/styles/tailwind";
+
+@layer base {
+  body {
+    background-color: var(--background-base);
+    color: var(--text-base);
+  }
+}
+
+@layer components {
+  /* tailwind's serif stack is reset by the ui theme, so the greeting brings its own */
+  [data-component="greeting"] {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-size: 22px;
+    line-height: 1.3;
+  }
+
+  @keyframes work-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin {
+    animation: work-spin 0.9s linear infinite;
+  }
+}
