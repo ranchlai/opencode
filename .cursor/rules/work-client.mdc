@@ -1,0 +1,28 @@
+---
+description: Conventions for the OpenCode Work client (packages/work)
+globs: packages/work/**
+alwaysApply: false
+---
+
+# Work client (`packages/work`)
+
+Independent task UI for `opencode serve`. Do not import from `packages/app`.
+
+## Layout
+
+- Main chat column: full flexible width between rail and workspace (no `max-w-*` on the message column)
+- Rail + workspace: resizable with `@opencode-ai/ui/resize-handle`; persist widths in `localStorage`
+- Workspace focus/selection must reset when `task` id or directory changes
+
+## Chat & files
+
+- Multi-turn history: render all user/assistant turns, not only the last message
+- Markdown: `@opencode-ai/ui/markdown` inside `MarkedProvider`
+- Workspace: write/edit/patch/diff files; preview via `client.file.read` with paths relative to session directory
+- Auto-scroll chat only when pinned near bottom; never force-scroll on every delta
+
+## Data
+
+- SDK: `@opencode-ai/sdk/v2/client`
+- Live updates: `client.global.event()` SSE reducer in `context/store.tsx`
+- Dev: backend `:4096`, work Vite `:3001` (`bun run dev:work`)
