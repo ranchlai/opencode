@@ -56,16 +56,59 @@ async function check(map: (dir: string) => string) {
   }
 }
 
-test("loads config with defaults when no files exist", async () => {
-  await using tmp = await tmpdir()
+test("loads ui from opencode config", async () => {
+  await using tmp = await tmpdir({
+    config: {
+      ui: {
+        theme: "oc-2",
+        followup: "queue",
+      },
+    },
+  })
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
       const config = await Config.get()
-      expect(config.username).toBeDefined()
+      expect(config.ui?.theme).toBe("oc-2")
+      expect(config.ui?.followup).toBe("queue")
     },
   })
 })
+
+test("fill supplies default ui and empty collections", () => {
+  const next = Config.fill({})
+  expect(next.plugin).toEqual([])
+  expect(next.mcp).toEqual({})
+  expect(next.ui?.followup).toBe("steer")
+  expect(next.ui?.font).toBe("ibm-plex-mono")
+  expect(next.ui?.colorScheme).toBe("system")
+})
+
+test("template uses null for unset optional fields", () => {
+  const next = Config.template()
+  expect(next.model).toBeNull()
+  expect(next.plugin).toEqual([])
+  expect((next.ui as { followup: string }).followup).toBe("steer")
+  expect((next.ui as { theme: unknown }).theme).toBeNull()
+})
+
+test("updateGlobal writes ui into the global config file", async () => {
+  await using globalTmp = await tmpdir()
+  const prev = Global.Path.config
+  ;(Global.Path as { config: string }).config = globalTmp.path
+  Config.global.reset()
+  try {
+    await Config.updateGlobal({ ui: { theme: "oc-2", followup: "queue" } })
+    const cfg = await Config.getGlobal()
+    expect(cfg.ui?.theme).toBe("oc-2")
+    expect(cfg.ui?.followup).toBe("queue")
+  } finally {
+    await Instance.disposeAll()
+    ;(Global.Path as { config: string }).config = prev
+    Config.global.reset()
+  }
+})
+
 
 test("loads JSON config file", async () => {
   await using tmp = await tmpdir({

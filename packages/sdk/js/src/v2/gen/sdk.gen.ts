@@ -760,6 +760,18 @@ export class Config2 extends HeyApiClient {
   }
 
   /**
+   * Get default configuration
+   *
+   * Retrieve a full OpenCode configuration template. Unset optional fields are null; collections default to empty.
+   */
+  public defaults<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<Record<string, unknown>, unknown, ThrowOnError>({
+      url: "/config/defaults",
+      ...options,
+    })
+  }
+
+  /**
    * Update configuration
    *
    * Update OpenCode configuration settings and preferences.

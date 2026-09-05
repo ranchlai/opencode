@@ -705,6 +705,7 @@ export const dict = {
   "settings.section.server": "Server",
   "settings.tab.general": "General",
   "settings.tab.shortcuts": "Shortcuts",
+  "settings.tab.config": "Config",
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "WSL integration",
   "settings.desktop.wsl.description": "Run the OpenCode server inside WSL on Windows.",
@@ -867,6 +868,15 @@ export const dict = {
   "settings.commands.description": "Command settings will be configurable here.",
   "settings.mcp.title": "MCP",
   "settings.mcp.description": "MCP settings will be configurable here.",
+
+  "settings.config.title": "Config",
+  "settings.config.description":
+    "Shared OpenCode config used by the TUI, web UI, and desktop. Unset fields are null. Save merges into your global opencode.json.",
+  "settings.config.save": "Save",
+  "settings.config.reset": "Reset to defaults",
+  "settings.config.invalid": "Invalid JSON",
+  "settings.config.saved.title": "Config saved",
+  "settings.config.saved.description": "Global OpenCode config was updated.",
 
   "settings.permissions.title": "Permissions",
   "settings.permissions.description": "Control what tools the server can use by default.",

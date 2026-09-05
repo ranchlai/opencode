@@ -368,6 +368,15 @@ function createGlobalSync() {
       })
   }
 
+  const updateUi = async (ui: NonNullable<Config["ui"]>) => {
+    const before = globalStore.config.ui
+    setGlobalStore("config", "ui", { ...before, ...ui })
+    return globalSDK.client.global.config.update({ config: { ui } }).catch((error) => {
+      setGlobalStore("config", "ui", before)
+      throw error
+    })
+  }
+
   return {
     data: globalStore,
     set,
@@ -380,6 +389,7 @@ function createGlobalSync() {
     child: children.child,
     bootstrap,
     updateConfig,
+    updateUi,
     project: projectApi,
     todo: {
       set: setSessionTodo,

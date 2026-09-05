@@ -1038,6 +1038,44 @@ export namespace Config {
     })
   export type Provider = z.infer<typeof Provider>
 
+  export const Ui = z
+    .object({
+      theme: z.string().optional().describe("Theme id for the web and desktop UI"),
+      colorScheme: z.enum(["system", "light", "dark"]).optional().describe("Color scheme for the web and desktop UI"),
+      language: z.string().optional().describe("UI language locale"),
+      font: z.string().optional().describe("Monospace font id"),
+      fontSize: z.number().optional().describe("UI font size"),
+      keybinds: z.record(z.string(), z.string()).optional().describe("Web and desktop keybind overrides"),
+      followup: z.enum(["queue", "steer"]).optional().describe("How follow-up prompts are handled"),
+      showReasoningSummaries: z.boolean().optional(),
+      shellToolPartsExpanded: z.boolean().optional(),
+      editToolPartsExpanded: z.boolean().optional(),
+      notifications: z
+        .object({
+          agent: z.boolean().optional(),
+          permissions: z.boolean().optional(),
+          errors: z.boolean().optional(),
+        })
+        .strict()
+        .optional(),
+      sounds: z
+        .object({
+          agentEnabled: z.boolean().optional(),
+          agent: z.string().optional(),
+          permissionsEnabled: z.boolean().optional(),
+          permissions: z.string().optional(),
+          errorsEnabled: z.boolean().optional(),
+          errors: z.string().optional(),
+        })
+        .strict()
+        .optional(),
+    })
+    .strict()
+    .meta({
+      ref: "UiConfig",
+    })
+  export type Ui = z.infer<typeof Ui>
+
   export const Info = z
     .object({
       $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
@@ -1258,6 +1296,7 @@ export namespace Config {
             .describe("Experimental team mode settings"),
         })
         .optional(),
+      ui: Ui.optional().describe("Graphical UI settings shared by the web and desktop apps"),
     })
     .strict()
     .meta({
@@ -1265,6 +1304,108 @@ export namespace Config {
     })
 
   export type Info = z.output<typeof Info>
+
+  export const Defaults: Info = {
+    $schema: "https://opencode.ai/config.json",
+    logLevel: undefined,
+    server: {
+      port: undefined,
+      hostname: undefined,
+      mdns: undefined,
+      mdnsDomain: undefined,
+      cors: undefined,
+    },
+    command: {},
+    skills: {
+      paths: [],
+      urls: [],
+    },
+    watcher: {
+      ignore: [],
+    },
+    plugin: [],
+    snapshot: undefined,
+    share: undefined,
+    autoshare: undefined,
+    autoupdate: undefined,
+    disabled_providers: [],
+    enabled_providers: undefined,
+    model: undefined,
+    small_model: undefined,
+    default_agent: undefined,
+    username: undefined,
+    mode: {},
+    agent: {},
+    provider: {},
+    mcp: {},
+    formatter: undefined,
+    lsp: undefined,
+    instructions: [],
+    layout: undefined,
+    permission: undefined,
+    tools: {},
+    enterprise: {
+      url: undefined,
+    },
+    compaction: {
+      auto: undefined,
+      prune: undefined,
+      reserved: undefined,
+    },
+    loop: {
+      verify: [],
+    },
+    experimental: {
+      disable_stream: undefined,
+      disable_paste_summary: undefined,
+      batch_tool: undefined,
+      openTelemetry: undefined,
+      primary_tools: [],
+      continue_loop_on_deny: undefined,
+      mcp_timeout: undefined,
+      team: {
+        max_members: undefined,
+        default_worktree: undefined,
+        heartbeat_ms: undefined,
+      },
+    },
+    ui: {
+      theme: undefined,
+      colorScheme: "system",
+      language: undefined,
+      font: "ibm-plex-mono",
+      fontSize: 14,
+      keybinds: {},
+      followup: "steer",
+      showReasoningSummaries: false,
+      shellToolPartsExpanded: true,
+      editToolPartsExpanded: false,
+      notifications: {
+        agent: true,
+        permissions: true,
+        errors: false,
+      },
+      sounds: {
+        agentEnabled: true,
+        agent: "staplebops-01",
+        permissionsEnabled: true,
+        permissions: "staplebops-02",
+        errorsEnabled: true,
+        errors: "nope-03",
+      },
+    },
+  }
+
+  export function fill(cfg: Info): Info {
+    return mergeDeep(Defaults, cfg)
+  }
+
+  export function template() {
+    return JSON.parse(JSON.stringify(Defaults, (_, value) => (value === undefined ? null : value))) as Record<
+      string,
+      unknown
+    >
+  }
 
   export const global = lazy(async () => {
     let result: Info = pipe(
@@ -1472,17 +1613,21 @@ export namespace Config {
 
     global.reset()
 
-    void Instance.disposeAll()
-      .catch(() => undefined)
-      .finally(() => {
-        GlobalBus.emit("event", {
-          directory: "global",
-          payload: {
-            type: Event.Disposed.type,
-            properties: {},
-          },
+    const keys = Object.keys(config).filter((key) => key !== "$schema")
+    const uiOnly = keys.length === 1 && keys[0] === "ui"
+    if (!uiOnly) {
+      void Instance.disposeAll()
+        .catch(() => undefined)
+        .finally(() => {
+          GlobalBus.emit("event", {
+            directory: "global",
+            payload: {
+              type: Event.Disposed.type,
+              properties: {},
+            },
+          })
         })
-      })
+    }
 
     return next
   }
@@ -1491,5 +1636,3 @@ export namespace Config {
     return state().then((x) => x.directories)
   }
 }
-Filesystem.write
-Filesystem.write

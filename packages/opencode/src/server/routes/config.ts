@@ -33,6 +33,28 @@ export const ConfigRoutes = lazy(() =>
         return c.json(await Config.get())
       },
     )
+    .get(
+      "/defaults",
+      describeRoute({
+        summary: "Get default configuration",
+        description:
+          "Retrieve a full OpenCode configuration template. Unset optional fields are null; collections default to empty.",
+        operationId: "config.defaults",
+        responses: {
+          200: {
+            description: "Default config template",
+            content: {
+              "application/json": {
+                schema: resolver(z.record(z.string(), z.any())),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(Config.template())
+      },
+    )
     .patch(
       "/",
       describeRoute({

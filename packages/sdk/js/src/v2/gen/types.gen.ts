@@ -1500,6 +1500,76 @@ export type Config = {
      * Timeout in milliseconds for model context protocol (MCP) requests
      */
     mcp_timeout?: number
+    team?: {
+      /**
+       * Maximum teammate count per team (default 4)
+       */
+      max_members?: number
+      /**
+       * Create a git worktree for writing teammates (default true)
+       */
+      default_worktree?: boolean
+      /**
+       * Mark busy teammates stuck after this many ms without heartbeat (default 60000)
+       */
+      heartbeat_ms?: number
+    }
+  }
+  /**
+   * Graphical UI settings shared by the web and desktop apps
+   */
+  ui?: UiConfig
+}
+
+/**
+ * Graphical UI settings shared by the web and desktop apps
+ */
+export type UiConfig = {
+  /**
+   * Theme id for the web and desktop UI
+   */
+  theme?: string
+  /**
+   * Color scheme for the web and desktop UI
+   */
+  colorScheme?: "system" | "light" | "dark"
+  /**
+   * UI language locale
+   */
+  language?: string
+  /**
+   * Monospace font id
+   */
+  font?: string
+  /**
+   * UI font size
+   */
+  fontSize?: number
+  /**
+   * Web and desktop keybind overrides
+   */
+  keybinds?: {
+    [key: string]: string
+  }
+  /**
+   * How follow-up prompts are handled
+   */
+  followup?: "queue" | "steer"
+  showReasoningSummaries?: boolean
+  shellToolPartsExpanded?: boolean
+  editToolPartsExpanded?: boolean
+  notifications?: {
+    agent?: boolean
+    permissions?: boolean
+    errors?: boolean
+  }
+  sounds?: {
+    agentEnabled?: boolean
+    agent?: string
+    permissionsEnabled?: boolean
+    permissions?: string
+    errorsEnabled?: boolean
+    errors?: string
   }
 }
 
